@@ -1,9 +1,7 @@
 import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+import { generateText, generateEmbedding } from '../lib/gemini';
 
 const ALL_FRAMEWORKS = [
   'Theravada Buddhist', 'Freudian', 'Jungian', 'Hermetic',
@@ -25,16 +23,13 @@ export const analyzeEntry = onDocumentCreated(
     const db = admin.firestore();
     const entryRef = db.doc(`users/${userId}/entries/${entryId}`);
 
+    // Prevent redundant work by checking if it's already analyzed
+    if (entryData.analysisStatus !== 'pending') {
+      logger.info(`Entry ${entryId} analysisStatus is ${entryData.analysisStatus}, skipping.`);
+      return;
+    }
+
     try {
-      const model = genAI.getGenerativeModel({
-        model: process.env.GEMINI_MODEL_DEFAULT || 'gemini-2.0-flash',
-        generationConfig: { responseMimeType: 'application/json' },
-      });
-
-      const embeddingModel = genAI.getGenerativeModel({
-        model: process.env.GEMINI_MODEL_EMBEDDING || 'gemini-embedding-exp',
-      });
-
       // --- Phase 1: depth scoring ---
       const depthPrompt = `Rate the psychological and emotional richness of this journal entry on a scale of 1 to 11. Return ONLY a JSON object with a single key "depthScore" containing an integer.
 
@@ -47,9 +42,10 @@ Score guide:
 Entry:
 "${entryData.content}"`;
 
-      const depthResult = await model.generateContent(depthPrompt);
-      const depthText = depthResult.response
-        .text()
+      const depthResponse = await generateText(depthPrompt, {
+        responseMimeType: 'application/json',
+      });
+      const depthText = depthResponse
         .replace(/^```json\n?/i, '')
         .replace(/```$/i, '')
         .trim();
@@ -93,18 +89,18 @@ Required fields:
 Entry (depthScore: ${depthScore}):
 "${entryData.content}"`;
 
-      const [analysisResult, embeddingResult] = await Promise.all([
-        model.generateContent(analysisPrompt),
-        embeddingModel.embedContent(entryData.content),
+      const [analysisResponse, embeddingValues] = await Promise.all([
+        generateText(analysisPrompt, {
+          responseMimeType: 'application/json',
+        }),
+        generateEmbedding(entryData.content),
       ]);
 
-      const analysisText = analysisResult.response
-        .text()
+      const analysisText = analysisResponse
         .replace(/^```json\n?/i, '')
         .replace(/```$/i, '')
         .trim();
       const analysisFields = JSON.parse(analysisText);
-      const embeddingValues = embeddingResult.embedding.values;
 
       const batch = db.batch();
 

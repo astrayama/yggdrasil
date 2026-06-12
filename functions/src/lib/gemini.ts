@@ -29,6 +29,7 @@ export interface GenerateTextOptions {
   systemInstruction?: string;
   temperature?: number;
   maxOutputTokens?: number;
+  responseMimeType?: string;
 }
 
 /**
@@ -49,6 +50,7 @@ export async function generateText(prompt: string, options?: GenerateTextOptions
       generationConfig: {
         temperature: options?.temperature,
         maxOutputTokens: options?.maxOutputTokens,
+        responseMimeType: options?.responseMimeType,
       },
     });
 

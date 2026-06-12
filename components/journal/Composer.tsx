@@ -3,12 +3,17 @@
 import React, { useRef, useEffect, useState } from "react";
 import { EntryTypeSelector, type EntryType } from "./EntryTypeSelector";
 import { MoodSliders, type MoodState } from "./MoodSliders";
+import { createEntry } from "@/lib/entries";
+import { auth } from "@/lib/firebase/client";
+import { logEntryCreated } from "@/lib/analytics";
 
 export function Composer() {
   const editorRef = useRef<HTMLDivElement>(null);
   const [content, setContent] = useState("");
   const [entryType, setEntryType] = useState<EntryType>(null);
   const [mood, setMood] = useState<MoodState | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'thinking' | 'error'>('idle');
 
   useEffect(() => {
     // Focus on mount so user can start typing immediately
@@ -30,9 +35,49 @@ export function Composer() {
     }
   };
 
-  const handleSave = () => {
-    console.log("Saving entry...", { content, entryType, mood });
-    // TODO: Wire up Firestore save logic for LAU-JRNL-04
+  const handleSave = async () => {
+    if (!content.trim() || !auth.currentUser) return;
+    
+    setIsSaving(true);
+    setSaveStatus('saving');
+
+    try {
+      await createEntry({
+        userId: auth.currentUser.uid,
+        content,
+        entryType,
+        mood
+      });
+      
+      // Calculate basic word count for analytics
+      // Strip HTML tags for word count
+      const textContent = content.replace(/<[^>]*>?/gm, ' ');
+      const wordCount = textContent.trim().split(/\s+/).filter(Boolean).length;
+      
+      logEntryCreated({
+        entry_type: (entryType as any) || undefined,
+        has_mood: !!mood,
+        tag_count: 0,
+        word_count: wordCount
+      });
+
+      // Clear composer
+      setContent("");
+      if (editorRef.current) {
+        editorRef.current.innerHTML = "";
+      }
+      setEntryType(null);
+      setMood(null);
+      
+      setSaveStatus('thinking');
+      // Hide the thinking indicator after a few seconds
+      setTimeout(() => setSaveStatus('idle'), 6000);
+    } catch (error) {
+      console.error('Failed to save entry:', error);
+      setSaveStatus('error');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -79,14 +124,26 @@ export function Composer() {
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-border/40 flex justify-end bg-surface">
+      <div className="p-4 border-t border-border/40 flex justify-between items-center bg-surface">
+        <div className="text-sm">
+          {saveStatus === 'thinking' && (
+            <span className="text-gold italic font-display animate-pulse flex items-center gap-2">
+              <span className="w-1.5 h-1.5 rounded-full bg-gold inline-block" />
+              Yggdrasil is thinking...
+            </span>
+          )}
+          {saveStatus === 'error' && (
+            <span className="text-red-400 italic">Failed to save. Please try again.</span>
+          )}
+        </div>
         <button
           onClick={handleSave}
-          className="px-6 py-2.5 bg-primary text-foreground border border-gold/40 rounded-sm hover:bg-primary/90 transition-all duration-300 font-medium text-xs tracking-wider uppercase relative pl-8 cursor-pointer overflow-hidden group"
+          disabled={isSaving || !content.trim()}
+          className="px-6 py-2.5 bg-primary text-foreground border border-gold/40 rounded-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 font-medium text-xs tracking-wider uppercase relative pl-8 cursor-pointer overflow-hidden group"
         >
           {/* Subtle gold left-edge line on hover */}
           <span className="absolute left-0 top-1 bottom-1 w-[2.5px] bg-gold scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-center" />
-          Save Entry
+          {isSaving ? "Saving..." : "Save Entry"}
         </button>
       </div>
     </div>
