@@ -1,34 +1,38 @@
 'use client';
 
+import { AuthForm } from '@/components/auth/AuthForm';
+import Link from 'next/link';
 import { useAuth } from '@/hooks/useAuth';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function SignupPage() {
-  const { signInWithGoogle, loading, error } = useAuth();
+  const { user, loading } = useAuth();
   const router = useRouter();
 
-  const handleSignup = async () => {
-    try {
-      await signInWithGoogle();
+  useEffect(() => {
+    if (user && !loading) {
       router.push('/journal');
-    } catch (err) {
-      console.error(err);
     }
-  };
+  }, [user, loading, router]);
 
   if (loading) return <div>Loading...</div>;
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-primary text-background">
-      <div className="p-8 bg-white rounded-lg shadow-lg text-foreground text-center">
-        <h1 className="text-2xl font-bold mb-4">Join Yggdrasil</h1>
-        {error && <p className="text-red-500 mb-4">{error.message}</p>}
-        <button
-          onClick={handleSignup}
-          className="bg-primary text-white px-4 py-2 rounded"
-        >
-          Sign up with Google
-        </button>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-primary text-background py-12 px-4 sm:px-6 lg:px-8">
+      <div className="w-full max-w-md space-y-8 bg-white p-8 rounded-2xl shadow-xl">
+        <div>
+          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
+            Join Yggdrasil
+          </h2>
+          <p className="mt-2 text-center text-sm text-gray-600">
+            Or{' '}
+            <Link href="/login" className="font-medium text-primary hover:text-primary-focus transition-colors">
+              sign in to your account
+            </Link>
+          </p>
+        </div>
+        <AuthForm mode="signup" />
       </div>
     </div>
   );

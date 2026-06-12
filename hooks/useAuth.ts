@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
-import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut as firebaseSignOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
+import { User, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '@/lib/firebase/client';
+import {
+  signInWithGoogle,
+  signInWithEmail,
+  signUpWithEmail,
+  signOut as logOut,
+} from '@/lib/auth';
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -23,22 +29,13 @@ export function useAuth() {
     return () => unsubscribe();
   }, []);
 
-  const signInWithGoogle = async () => {
-    const provider = new GoogleAuthProvider();
-    return signInWithPopup(auth, provider);
-  };
-
-  const signOut = async () => {
-    return firebaseSignOut(auth);
-  };
-
   return {
     user,
     loading,
     error,
     signInWithGoogle,
-    signInWithEmailAndPassword,
-    createUserWithEmailAndPassword,
-    signOut,
+    signInWithEmail,
+    signUpWithEmail,
+    signOut: logOut,
   };
 }
