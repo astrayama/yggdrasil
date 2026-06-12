@@ -22,6 +22,7 @@ export interface JournalEntry {
   wordCount: number;
   createdAt: number;
   updatedAt: number;
+  analysisStatus?: 'pending' | 'complete' | 'error';
   embedding?: any; // FirebaseFirestore.VectorValue (using any for cross-platform compatibility)
   embeddingGeneratedAt?: any; // FirebaseFirestore.Timestamp
 }
