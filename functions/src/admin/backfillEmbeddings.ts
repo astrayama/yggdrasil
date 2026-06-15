@@ -2,10 +2,14 @@ import { onRequest } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { geminiapikey } from '../lib/gemini';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-
-export const backfillEmbeddings = onRequest(async (req, res) => {
+export const backfillEmbeddings = onRequest(
+  {
+    secrets: [geminiapikey],
+  },
+  async (req, res) => {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
   // Simple auth for admin endpoints if needed, but for this migration script
   // we'll assume it's protected by Cloud IAM or meant to be run once manually.
   
@@ -59,4 +63,5 @@ export const backfillEmbeddings = onRequest(async (req, res) => {
     logger.error('Failed to backfill embeddings', error);
     res.status(500).send('Internal Server Error');
   }
-});
+  }
+);

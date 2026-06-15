@@ -16,7 +16,9 @@ export interface JournalEntry {
   userId: string;
   title: string;
   content: string; // rich text string
-  mood?: Mood;
+  moodPolarity?: number;
+  moodIntensity?: number;
+  moodLabel?: string;
   entryType?: EntryType;
   tags: string[];
   wordCount: number;

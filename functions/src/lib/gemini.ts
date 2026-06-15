@@ -1,15 +1,23 @@
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { logger } from 'firebase-functions';
+import { defineSecret } from 'firebase-functions/params';
 
-// Retrieve the API key from functions config or process.env.
-// This allows us to centralize API key lookup.
-const apiKey = process.env.GEMINI_API_KEY || '';
+export const geminiapikey = defineSecret('GEMINI_API_KEY');
 
-if (!apiKey) {
-  logger.warn('GEMINI_API_KEY is not set. Gemini API calls will fail.');
+// Initialize genAI lazily so it picks up the secret at runtime
+let genAI: GoogleGenerativeAI | null = null;
+
+function getGenAI(): GoogleGenerativeAI {
+  if (!genAI) {
+    const apiKey = process.env.GEMINI_API_KEY || '';
+    if (!apiKey) {
+      logger.warn('GEMINI_API_KEY is not set. Gemini API calls will fail.');
+    }
+    genAI = new GoogleGenerativeAI(apiKey);
+  }
+  return genAI;
 }
 
-const genAI = new GoogleGenerativeAI(apiKey);
 
 /**
  * Default models as specified by LAU-AI-01 requirements.
@@ -44,7 +52,7 @@ export async function generateText(prompt: string, options?: GenerateTextOptions
   const modelName = options?.model || DEFAULT_MODEL;
 
   try {
-    const generativeModel = genAI.getGenerativeModel({
+    const generativeModel = getGenAI().getGenerativeModel({
       model: modelName,
       systemInstruction: options?.systemInstruction,
       generationConfig: {
@@ -79,7 +87,7 @@ export async function generateText(prompt: string, options?: GenerateTextOptions
  */
 export async function generateEmbedding(text: string): Promise<number[]> {
   try {
-    const embeddingModel = genAI.getGenerativeModel({
+    const embeddingModel = getGenAI().getGenerativeModel({
       model: DEFAULT_EMBEDDING_MODEL,
     });
 

@@ -2,11 +2,15 @@ import { onCall, HttpsError } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { geminiapikey } from '../lib/gemini';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
-
-export const yggiChat = onCall(async (request) => {
-  const { auth, data } = request;
+export const yggiChat = onCall(
+  {
+    secrets: [geminiapikey],
+  },
+  async (request) => {
+    const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || '');
+    const { auth, data } = request;
   
   if (!auth) {
     throw new HttpsError('unauthenticated', 'User must be authenticated.');

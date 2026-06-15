@@ -26,7 +26,7 @@ export function useJournal() {
 
       logEntryCreated({
         entry_type: entry.entryType,
-        has_mood: !!entry.mood,
+        has_mood: !!entry.moodLabel,
         tag_count: entry.tags.length,
         word_count: entry.wordCount,
       });
