@@ -42,4 +42,5 @@ next-env.d.ts
 
 functions/node_modules
 functions/lib
+!.env.production
 !.env.production.example

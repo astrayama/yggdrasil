@@ -14,13 +14,14 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-const app = process.env.NEXT_PUBLIC_FIREBASE_API_KEY 
-  ? (!getApps().length ? initializeApp(firebaseConfig) : getApp())
-  : ({} as any);
+if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+  console.error("CRITICAL: NEXT_PUBLIC_FIREBASE_API_KEY is missing! You must provide NEXT_PUBLIC_ variables during the Next.js build (e.g. via .env.production or build args).");
+}
 
-const auth = process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? getAuth(app) : ({} as any);
-const db = process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? getFirestore(app) : ({} as any);
-const storage = process.env.NEXT_PUBLIC_FIREBASE_API_KEY ? getStorage(app) : ({} as any);
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
+const auth = getAuth(app);
+const db = getFirestore(app);
+const storage = getStorage(app);
 
 let analytics: any = null;
 if (typeof window !== 'undefined') {
