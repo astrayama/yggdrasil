@@ -19,6 +19,14 @@ jest.mock('next/navigation', () => ({
   }),
 }))
 
+jest.mock('@/components/auth/AuthForm', () => ({
+  AuthForm: () => (
+    <div>
+      <button type="button">Sign in with Google</button>
+    </div>
+  ),
+}))
+
 describe('LoginPage', () => {
   it('renders the Google sign-in action', () => {
     render(<LoginPage />)

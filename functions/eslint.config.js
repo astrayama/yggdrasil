@@ -24,7 +24,8 @@ module.exports = [
     rules: {
       ...tsPlugin.configs.recommended.rules,
       "quotes": ["error", "single"],
-      "indent": ["error", 2],
+      "indent": "off",
+      "@typescript-eslint/indent": "off",
       "object-curly-spacing": ["error", "always"],
       "require-jsdoc": 0,
       "max-len": "off",
