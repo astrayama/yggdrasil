@@ -5,5 +5,5 @@ export const generateWeeklyReport = onCall(async (request) => {
   // Weekly AI report stub
   const weekId = new Date().toISOString().slice(0, 10);
   await logWeeklyWisdomGenerated(weekId);
-  return { success: true, report: "Weekly wisdom..." };
+  return { success: true, report: 'Weekly wisdom...' };
 });
