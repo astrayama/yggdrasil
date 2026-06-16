@@ -12,11 +12,12 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (user && !loading) {
-      router.push('/journal');
+      router.replace('/journal');
     }
   }, [user, loading, router]);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div role="status" aria-live="polite">Loading...</div>;
+  if (user) return null;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-primary text-background py-12 px-4 sm:px-6 lg:px-8">

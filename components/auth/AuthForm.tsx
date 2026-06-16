@@ -1,8 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { useAuth } from '@/hooks/useAuth';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/hooks/useAuth';
+import { getFriendlyAuthErrorMessage } from '@/lib/auth';
 
 interface AuthFormProps {
   mode: 'login' | 'signup';
@@ -11,27 +12,31 @@ interface AuthFormProps {
 export function AuthForm({ mode }: AuthFormProps) {
   const { signInWithGoogle, signInWithEmail, signUpWithEmail } = useAuth();
   const router = useRouter();
-  
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
   const handleGoogleAuth = async () => {
+    if (loading) return;
+
     try {
       setErrorMsg('');
       setLoading(true);
       await signInWithGoogle();
-      router.push('/journal');
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to sign in with Google');
+      router.replace('/journal');
+    } catch (err: unknown) {
+      setErrorMsg(getFriendlyAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }
   };
 
-  const handleEmailAuth = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleEmailAuth = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (loading) return;
+
     setErrorMsg('');
     setLoading(true);
 
@@ -41,18 +46,9 @@ export function AuthForm({ mode }: AuthFormProps) {
       } else {
         await signUpWithEmail(email, password);
       }
-      router.push('/journal');
-    } catch (err: any) {
-      // Provide friendlier error messages for common Firebase auth errors
-      let friendlyError = err.message;
-      if (err.code === 'auth/wrong-password' || err.code === 'auth/user-not-found' || err.code === 'auth/invalid-credential') {
-        friendlyError = 'Invalid email or password.';
-      } else if (err.code === 'auth/email-already-in-use') {
-        friendlyError = 'An account with this email already exists.';
-      } else if (err.code === 'auth/weak-password') {
-        friendlyError = 'Password should be at least 6 characters.';
-      }
-      setErrorMsg(friendlyError);
+      router.replace('/journal');
+    } catch (err: unknown) {
+      setErrorMsg(getFriendlyAuthErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -60,13 +56,13 @@ export function AuthForm({ mode }: AuthFormProps) {
 
   return (
     <div className="w-full max-w-md mx-auto space-y-6">
-      {/* Google Sign-in - Primary Action */}
       <button
+        type="button"
         onClick={handleGoogleAuth}
         disabled={loading}
         className="w-full flex items-center justify-center gap-3 bg-white text-gray-800 border border-gray-300 hover:bg-gray-50 px-4 py-3 rounded-lg shadow-sm font-medium transition-colors disabled:opacity-50"
       >
-        <svg className="w-5 h-5" viewBox="0 0 24 24">
+        <svg className="w-5 h-5" viewBox="0 0 24 24" aria-hidden="true">
           <path
             fill="currentColor"
             d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -84,12 +80,12 @@ export function AuthForm({ mode }: AuthFormProps) {
             d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
           />
         </svg>
-        Sign {mode === 'login' ? 'in' : 'up'} with Google
+        {loading ? 'Please wait...' : `Sign ${mode === 'login' ? 'in' : 'up'} with Google`}
       </button>
 
       <div className="relative">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-gray-300"></div>
+          <div className="w-full border-t border-gray-300" />
         </div>
         <div className="relative flex justify-center text-sm">
           <span className="px-2 bg-white text-gray-500">Or continue with email</span>
@@ -97,7 +93,7 @@ export function AuthForm({ mode }: AuthFormProps) {
       </div>
 
       {errorMsg && (
-        <div className="p-3 bg-red-50 text-red-600 text-sm rounded border border-red-200">
+        <div role="alert" className="p-3 bg-red-50 text-red-600 text-sm rounded border border-red-200">
           {errorMsg}
         </div>
       )}
@@ -111,9 +107,10 @@ export function AuthForm({ mode }: AuthFormProps) {
             id="email"
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(event) => setEmail(event.target.value)}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900 bg-white"
+            disabled={loading}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900 bg-white disabled:opacity-50"
             placeholder="you@example.com"
           />
         </div>
@@ -125,10 +122,11 @@ export function AuthForm({ mode }: AuthFormProps) {
             id="password"
             type="password"
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(event) => setPassword(event.target.value)}
             required
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900 bg-white"
-            placeholder="••••••••"
+            disabled={loading}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent text-gray-900 bg-white disabled:opacity-50"
+            placeholder="Password"
           />
         </div>
         <button
@@ -136,7 +134,7 @@ export function AuthForm({ mode }: AuthFormProps) {
           disabled={loading}
           className="w-full bg-primary text-white py-2 rounded-lg hover:opacity-90 transition-opacity font-medium disabled:opacity-50"
         >
-          {mode === 'login' ? 'Sign In' : 'Sign Up'}
+          {loading ? 'Please wait...' : mode === 'login' ? 'Sign In' : 'Sign Up'}
         </button>
       </form>
     </div>

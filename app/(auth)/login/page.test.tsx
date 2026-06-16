@@ -3,8 +3,11 @@ import LoginPage from './page'
 
 jest.mock('@/hooks/useAuth', () => ({
   useAuth: () => ({
-    signInWithGoogle: jest.fn(),
+    user: null,
     loading: false,
+    signInWithGoogle: jest.fn(),
+    signInWithEmail: jest.fn(),
+    signUpWithEmail: jest.fn(),
     error: null,
   }),
 }))
@@ -12,7 +15,16 @@ jest.mock('@/hooks/useAuth', () => ({
 jest.mock('next/navigation', () => ({
   useRouter: () => ({
     push: jest.fn(),
+    replace: jest.fn(),
   }),
+}))
+
+jest.mock('@/components/auth/AuthForm', () => ({
+  AuthForm: () => (
+    <div>
+      <button type="button">Sign in with Google</button>
+    </div>
+  ),
 }))
 
 describe('LoginPage', () => {

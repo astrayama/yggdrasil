@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 
 export default function DashboardLayout({
@@ -10,19 +10,32 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { user, loading } = useAuth();
+  const { user, loading, signOut } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [signingOut, setSigningOut] = useState(false);
 
   useEffect(() => {
     if (!loading && !user) {
-      router.push('/login');
+      router.replace('/login');
     }
   }, [loading, user, router]);
 
+  const handleSignOut = async () => {
+    if (signingOut) return;
+
+    try {
+      setSigningOut(true);
+      await signOut();
+      router.replace('/login');
+    } finally {
+      setSigningOut(false);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground">
+      <div role="status" aria-live="polite" className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground">
         <div className="flex flex-col items-center gap-4">
           <svg className="w-12 h-12 text-sage animate-pulse" fill="none" stroke="currentColor" strokeWidth="1" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v18M12 9c2.5 0 5 1.5 5 4s-2.5 4-5 4M12 9C9.5 9 7 10.5 7 13s2.5 4 5 4M12 5c4 0 6 2 6 5s-2 5-6 5M12 5c-4 0-6 2-6 5s2 5 6 5" />
@@ -140,6 +153,15 @@ export default function DashboardLayout({
                 Explorer
               </span>
             </div>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={signingOut}
+              aria-label="Sign out"
+              className="ml-auto rounded-sm border border-border px-2 py-1 text-xs font-medium text-foreground/70 transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+            >
+              Sign out
+            </button>
           </div>
         </nav>
       </aside>
@@ -157,8 +179,19 @@ export default function DashboardLayout({
             </span>
           </div>
 
-          <div className="w-7 h-7 rounded-sm bg-muted flex items-center justify-center text-xs font-mono text-sage border border-border">
-            {user.email ? user.email.slice(0, 2).toUpperCase() : 'US'}
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-sm bg-muted flex items-center justify-center text-xs font-mono text-sage border border-border">
+              {user.email ? user.email.slice(0, 2).toUpperCase() : 'US'}
+            </div>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={signingOut}
+              aria-label="Sign out"
+              className="rounded-sm border border-border px-2 py-1 text-xs font-medium text-foreground/70 transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+            >
+              Sign out
+            </button>
           </div>
         </header>
 
