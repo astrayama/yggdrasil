@@ -1,4 +1,4 @@
-import { onDocumentCreated } from 'firebase-functions/v2/firestore';
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { logInsightGenerated } from '../lib/analytics';
@@ -10,14 +10,14 @@ const ALL_FRAMEWORKS = [
   'CBT', 'DBT', 'Stoic', 'Gnostic',
 ];
 
-export const analyzeEntry = onDocumentCreated(
+export const analyzeEntry = onDocumentWritten(
   {
     document: 'users/{userId}/entries/{entryId}',
     secrets: [geminiapikey],
   },
   async (event) => {
     const { userId, entryId } = event.params;
-    const entryData = event.data?.data();
+    const entryData = event.data?.after?.data();
 
     if (!entryData?.content) {
       logger.warn('analyzeEntry: entry has no content', { userId, entryId });
@@ -93,17 +93,22 @@ Required fields:
 Entry (depthScore: ${depthScore}):
 "${entryData.content}"`;
 
+      const analysisPromise = generateText(analysisPrompt, {
+        responseMimeType: 'application/json',
+      });
+      
+      const embeddingPromise = generateEmbedding(entryData.content).catch((e) => {
+        logger.error('Failed to generate embedding', { userId, entryId, error: e });
+        return null;
+      });
+
       const [analysisResponse, embeddingValues] = await Promise.all([
-        generateText(analysisPrompt, {
-          responseMimeType: 'application/json',
-        }),
-        generateEmbedding(entryData.content),
+        analysisPromise,
+        embeddingPromise,
       ]);
 
-      const analysisText = analysisResponse
-        .replace(/^```json\n?/i, '')
-        .replace(/```$/i, '')
-        .trim();
+      const match = analysisResponse.match(/\{[\s\S]*\}/);
+      const analysisText = match ? match[0] : analysisResponse;
       const analysisFields = JSON.parse(analysisText);
 
       const batch = db.batch();
@@ -116,11 +121,19 @@ Entry (depthScore: ${depthScore}):
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      batch.update(entryRef, {
+      const entryUpdateData: any = {
         analysisStatus: 'complete',
-        embedding: admin.firestore.FieldValue.vector(embeddingValues),
-        embeddingGeneratedAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      };
+      
+      if (embeddingValues) {
+        entryUpdateData.embedding = admin.firestore.FieldValue.vector(embeddingValues);
+        entryUpdateData.embeddingGeneratedAt = admin.firestore.FieldValue.serverTimestamp();
+        entryUpdateData.embeddingError = admin.firestore.FieldValue.delete();
+      } else {
+        entryUpdateData.embeddingError = true;
+      }
+
+      batch.update(entryRef, entryUpdateData);
 
       await batch.commit();
 
@@ -128,7 +141,11 @@ Entry (depthScore: ${depthScore}):
       await logInsightGenerated(userId, entryId, depthScore);
     } catch (error) {
       logger.error('analyzeEntry failed', { userId, entryId, error });
-      await entryRef.update({ analysisStatus: 'error' }).catch(() => {});
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      await entryRef.update({ 
+        analysisStatus: 'error',
+        analysisError: errorMessage
+      }).catch(() => {});
     }
   }
 );

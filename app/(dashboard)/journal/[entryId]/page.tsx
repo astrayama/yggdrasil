@@ -1,10 +1,11 @@
 'use client';
 
-import { use, useEffect } from 'react';
+import { use, useEffect, useState } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { useFirestore, useFirestoreDoc } from '@/hooks/useFirestore';
 import { useRouter } from 'next/navigation';
-import { limit } from 'firebase/firestore';
+import { limit, updateDoc, doc } from 'firebase/firestore';
+import { db } from '@/lib/firebase/client';
 import type { JournalEntry, EntryAnalysis } from '@/types/journal';
 import { InsightCard } from '@/components/insights/InsightCard';
 
@@ -19,6 +20,22 @@ export default function EntryPage({ params }: EntryPageProps) {
   // Use React.use to unwrap the Promise
   const resolvedParams = use(params);
   const entryId = resolvedParams.entryId;
+  const [retrying, setRetrying] = useState(false);
+
+  const handleRetry = async () => {
+    if (!user || !entryId) return;
+    setRetrying(true);
+    try {
+      await updateDoc(doc(db, `users/${user.uid}/entries/${entryId}`), {
+        analysisStatus: 'pending',
+        analysisError: null,
+      });
+    } catch (err) {
+      console.error("Failed to retry analysis:", err);
+    } finally {
+      setRetrying(false);
+    }
+  };
 
   const entryPath = user ? `users/${user.uid}/entries/${entryId}` : '';
   const analysisPath = user ? `users/${user.uid}/entries/${entryId}/analysis` : '';
@@ -78,7 +95,7 @@ export default function EntryPage({ params }: EntryPageProps) {
       {/* Entry Content */}
       <article className="prose prose-invert prose-p:text-foreground/90 prose-p:leading-relaxed max-w-none">
         <div className="flex items-center gap-3 mb-6 text-sm text-muted-foreground">
-          <time dateTime={new Date(entry.createdAt).toISOString()}>
+          <time dateTime={new Date(entry.createdAt).toISOString()} suppressHydrationWarning>
             {new Date(entry.createdAt).toLocaleDateString(undefined, { 
               weekday: 'long', 
               year: 'numeric', 
@@ -113,8 +130,19 @@ export default function EntryPage({ params }: EntryPageProps) {
 
         {entry.analysisStatus === 'error' && (
           <div className="p-6 bg-red-900/10 border border-red-900/20 rounded-xl text-center">
-            <p className="text-red-400">There was an issue reflecting on this entry.</p>
-            <p className="text-sm text-red-400/70 mt-2">The system will safely retry this later.</p>
+            <p className="text-red-400 mb-2">There was an issue reflecting on this entry.</p>
+            <button 
+              onClick={handleRetry}
+              disabled={retrying}
+              className="px-4 py-2 bg-red-900/40 hover:bg-red-900/60 text-red-200 text-sm rounded transition-colors disabled:opacity-50"
+            >
+              {retrying ? 'Retrying...' : 'Retry Analysis'}
+            </button>
+            {entry.analysisError && (
+              <p className="text-xs text-red-400/80 mt-4 p-3 bg-red-900/20 rounded font-mono text-left overflow-x-auto whitespace-pre-wrap border border-red-900/30">
+                {entry.analysisError}
+              </p>
+            )}
           </div>
         )}
 
