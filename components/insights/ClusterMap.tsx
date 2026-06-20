@@ -33,11 +33,10 @@ export function ClusterMap() {
 
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // 1. Filter entries that have embeddings
+  // 1. Filter entries (include completed ones even if they lack embeddings yet)
   const validEntries = useMemo(() => {
     if (!entries) return [];
-    // Only entries that have an embedding and are completed
-    return entries.filter(e => e.analysisStatus === 'complete' && e.embedding);
+    return entries.filter(e => e.analysisStatus === 'complete');
   }, [entries]);
 
   // 2. Fetch missing analyses for the filtered entries
@@ -104,7 +103,21 @@ export function ClusterMap() {
         if (typeof entry.embedding?.toArray === 'function') {
           return entry.embedding.toArray();
         }
-        return Array.isArray(entry.embedding) ? entry.embedding : [];
+        if (Array.isArray(entry.embedding) && entry.embedding.length > 0) {
+          return entry.embedding;
+        }
+        
+        // Faux embedding for old entries that don't have embeddings yet
+        // We use their themes to hash into a vector so similar themes cluster together
+        const faux = new Array(768).fill(0);
+        if (entry.analysis?.themes) {
+          entry.analysis.themes.forEach(theme => {
+            let hash = 0;
+            for (let i = 0; i < theme.length; i++) hash = (hash << 5) - hash + theme.charCodeAt(i);
+            faux[Math.abs(hash) % 768] = 1;
+          });
+        }
+        return faux;
       },
       k
     );

@@ -148,17 +148,23 @@ export function MoodCharts() {
                 const barHeight = freqHeight - freqMargin.bottom - yPos;
 
                 return (
-                  <rect
-                    key={i}
-                    x={xPos}
-                    y={yPos}
-                    width={barWidth}
-                    height={barHeight}
-                    className="fill-primary/70 hover:fill-primary transition-colors cursor-pointer"
-                    rx={2}
-                  >
-                    <title>{`${d.date.toDateString()}: ${d.count} entries`}</title>
-                  </rect>
+                  <g key={i}>
+                    <rect
+                      x={xPos}
+                      y={yPos}
+                      width={barWidth}
+                      height={barHeight}
+                      className="fill-primary/70 hover:fill-primary transition-colors cursor-pointer"
+                      rx={2}
+                    >
+                      <title>{`${d.date.toDateString()}: ${d.count} entries`}</title>
+                    </rect>
+                    {d.count > 0 && (
+                      <text x={xPos + barWidth / 2} y={yPos - 4} textAnchor="middle" className="fill-muted-foreground text-[10px]">
+                        {d.count}x
+                      </text>
+                    )}
+                  </g>
                 );
               })}
               {frequencyData.length === 0 && (
@@ -191,17 +197,28 @@ export function MoodCharts() {
 
               {/* Data Points */}
               {scatterData.map(d => (
-                <circle
-                  key={d.id}
-                  cx={xScatter(d.polarity)}
-                  cy={yScatter(d.intensity)}
-                  r={6}
-                  fill={colorScale(d.polarity)}
-                  className="opacity-70 hover:opacity-100 hover:stroke-foreground transition-all cursor-pointer"
-                  strokeWidth={2}
-                >
-                  <title>{`${d.date.toDateString()} | ${d.label || 'Unlabeled'}\nPolarity: ${d.polarity}, Intensity: ${d.intensity}`}</title>
-                </circle>
+                <g key={d.id}>
+                  <circle
+                    cx={xScatter(d.polarity)}
+                    cy={yScatter(d.intensity)}
+                    r={6}
+                    fill={colorScale(d.polarity)}
+                    className="opacity-70 hover:opacity-100 hover:stroke-foreground transition-all cursor-pointer"
+                    strokeWidth={2}
+                  >
+                    <title>{`${d.date.toDateString()} | ${d.label || 'Unlabeled'}\nPolarity: ${d.polarity}, Intensity: ${d.intensity}`}</title>
+                  </circle>
+                  {d.label && (
+                    <text 
+                      x={xScatter(d.polarity) + 10} 
+                      y={yScatter(d.intensity)} 
+                      className="text-[10px] fill-muted-foreground font-medium" 
+                      alignmentBaseline="middle"
+                    >
+                      {d.label}
+                    </text>
+                  )}
+                </g>
               ))}
               {scatterData.length === 0 && (
                 <text x={scatterSize/2} y={scatterSize/2} textAnchor="middle" className="fill-muted-foreground text-sm">
