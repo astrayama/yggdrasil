@@ -5,6 +5,7 @@ export interface GraphNode {
   label: string;
   type: string;
   weight: number;
+  entryIds: string[];
 }
 
 export interface GraphEdge {
@@ -64,7 +65,7 @@ function cosineSimilarity(a: number[], b: number[]): number {
  * @param tier 'basic' (free) or 'full' (pro). Basic limits node count.
  */
 export function buildKnowledgeGraph(entries: (JournalEntry & { analysis?: EntryAnalysis })[], tier: 'basic' | 'full' = 'full'): GraphData {
-  const nodeMap = new Map<string, { label: string, type: string, weight: number, embeddings: number[][] }>();
+  const nodeMap = new Map<string, { label: string, type: string, weight: number, embeddings: number[][], entryIds: string[] }>();
   
   // 1. Extract nodes and accumulate embeddings
   entries.forEach(entry => {
@@ -77,10 +78,11 @@ export function buildKnowledgeGraph(entries: (JournalEntry & { analysis?: EntryA
     entry.analysis.themes?.forEach(theme => {
       const id = `theme_${theme.toLowerCase().replace(/\s+/g, '_')}`;
       if (!nodeMap.has(id)) {
-        nodeMap.set(id, { label: theme, type: 'theme', weight: 0, embeddings: [] });
+        nodeMap.set(id, { label: theme, type: 'theme', weight: 0, embeddings: [], entryIds: [] });
       }
       const node = nodeMap.get(id)!;
       node.weight++;
+      if (!node.entryIds.includes(entry.id)) node.entryIds.push(entry.id);
       if (entryEmbedding) node.embeddings.push(entryEmbedding);
     });
     
@@ -88,10 +90,11 @@ export function buildKnowledgeGraph(entries: (JournalEntry & { analysis?: EntryA
     entry.analysis.entities?.forEach(entity => {
       const id = `entity_${entity.type}_${entity.name.toLowerCase().replace(/\s+/g, '_')}`;
       if (!nodeMap.has(id)) {
-        nodeMap.set(id, { label: entity.name, type: entity.type, weight: 0, embeddings: [] });
+        nodeMap.set(id, { label: entity.name, type: entity.type, weight: 0, embeddings: [], entryIds: [] });
       }
       const node = nodeMap.get(id)!;
       node.weight++;
+      if (!node.entryIds.includes(entry.id)) node.entryIds.push(entry.id);
       if (entryEmbedding) node.embeddings.push(entryEmbedding);
     });
   });
@@ -127,13 +130,14 @@ export function buildKnowledgeGraph(entries: (JournalEntry & { analysis?: EntryA
       label: data.label,
       type: data.type,
       weight: data.weight,
+      entryIds: data.entryIds,
       vector: avgVector
     };
   });
   
   // 4. Compute Edges based on cosine similarity
   const edges: GraphEdge[] = [];
-  const nodes: GraphNode[] = nodesWithEmbeddings.map(n => ({ id: n.id, label: n.label, type: n.type, weight: n.weight }));
+  const nodes: GraphNode[] = nodesWithEmbeddings.map(n => ({ id: n.id, label: n.label, type: n.type, weight: n.weight, entryIds: n.entryIds }));
   
   // Only compute edges for nodes that successfully formed a vector
   const validNodes = nodesWithEmbeddings.filter(n => n.vector !== null);

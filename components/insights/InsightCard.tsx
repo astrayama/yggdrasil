@@ -8,7 +8,7 @@ interface InsightCardProps {
 }
 
 export function InsightCard({ analysis }: InsightCardProps) {
-  const { interpretation, themes, emotions, keywords } = analysis;
+  const { interpretation, themes, emotions, keywords, safety_concerns } = analysis;
   
   const [showDepth, setShowDepth] = useState(false);
   const [showQuestions, setShowQuestions] = useState(false);
@@ -17,6 +17,26 @@ export function InsightCard({ analysis }: InsightCardProps) {
   return (
     <div className="bg-surface-2 border border-border/60 rounded-xl p-6 sm:p-8 shadow-sm transition-all duration-300">
       <div className="space-y-6">
+        {/* Safety Warning */}
+        {safety_concerns?.flagged && (
+          <div className="bg-red-900/20 border border-red-500/50 rounded-xl p-4 sm:p-5">
+            <div className="flex items-start gap-3">
+              <span className="text-xl mt-0.5">⚠️</span>
+              <div>
+                <h4 className="text-sm font-semibold text-red-400 uppercase tracking-wider mb-2">Safety Consideration</h4>
+                <ul className="space-y-1">
+                  {safety_concerns.concerns.map((concern, idx) => (
+                    <li key={idx} className="text-sm text-red-200/90 leading-relaxed">• {concern}</li>
+                  ))}
+                </ul>
+                <p className="text-xs text-red-300/70 mt-3 border-t border-red-900/50 pt-2">
+                  If you or someone else is in immediate danger, please reach out to local emergency services or a crisis lifeline.
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Header / Main Insight */}
         <div>
           <h3 className="text-sm uppercase tracking-widest text-gold/80 mb-3 font-semibold">
