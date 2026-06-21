@@ -126,7 +126,10 @@ export function MoodCharts() {
         
         {/* Frequency Chart */}
         <div className="bg-card border border-border/50 rounded-xl p-6 shadow-sm flex flex-col justify-center items-center">
-          <h4 className="text-sm font-medium text-muted-foreground w-full mb-4 uppercase tracking-wider">Entry Frequency</h4>
+          <h4 className="text-sm font-medium text-muted-foreground w-full mb-2 uppercase tracking-wider">Entry Frequency</h4>
+          <p className="text-xs text-muted-foreground w-full mb-6 text-left">
+            This chart tracks how often you journal over time. Consistency can reveal patterns in when you feel the most need to reflect. Use this to maintain momentum or spot periods of disengagement.
+          </p>
           <div className="w-full max-w-lg aspect-[3/1]">
             <svg viewBox={`0 0 ${freqWidth} ${freqHeight}`} className="w-full h-full overflow-visible">
               {/* Axes Base Lines */}
@@ -178,7 +181,10 @@ export function MoodCharts() {
 
         {/* 2D Mood Scatter Plot */}
         <div className="bg-card border border-border/50 rounded-xl p-6 shadow-sm flex flex-col justify-center items-center">
-          <h4 className="text-sm font-medium text-muted-foreground w-full mb-4 uppercase tracking-wider">Mood Matrix</h4>
+          <h4 className="text-sm font-medium text-muted-foreground w-full mb-2 uppercase tracking-wider">Mood Matrix</h4>
+          <p className="text-xs text-muted-foreground w-full mb-6 text-left">
+            Plots your entries based on emotional polarity (negative to positive) and intensity. It helps you quickly identify if you're experiencing extreme highs/lows or if your mood is generally stable.
+          </p>
           <div className="w-full max-w-sm aspect-square relative">
             <svg viewBox={`0 0 ${scatterSize} ${scatterSize}`} className="w-full h-full overflow-visible">
               {/* Quadrant Backgrounds (Optional, subtle) */}
@@ -197,13 +203,13 @@ export function MoodCharts() {
 
               {/* Data Points */}
               {scatterData.map(d => (
-                <g key={d.id}>
+                <g key={d.id} className="group">
                   <circle
                     cx={xScatter(d.polarity)}
                     cy={yScatter(d.intensity)}
                     r={6}
                     fill={colorScale(d.polarity)}
-                    className="opacity-70 hover:opacity-100 hover:stroke-foreground transition-all cursor-pointer"
+                    className="opacity-70 group-hover:opacity-100 group-hover:stroke-foreground transition-all cursor-pointer"
                     strokeWidth={2}
                   >
                     <title>{`${d.date.toDateString()} | ${d.label || 'Unlabeled'}\nPolarity: ${d.polarity}, Intensity: ${d.intensity}`}</title>
@@ -212,7 +218,7 @@ export function MoodCharts() {
                     <text 
                       x={xScatter(d.polarity) + 10} 
                       y={yScatter(d.intensity)} 
-                      className="text-[10px] fill-muted-foreground font-medium" 
+                      className="text-[10px] fill-muted-foreground font-medium opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none" 
                       alignmentBaseline="middle"
                     >
                       {d.label}

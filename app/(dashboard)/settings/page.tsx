@@ -7,6 +7,7 @@ import { useFirestoreDoc } from '@/hooks/useFirestore';
 import { setDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import { SettingsTracker } from './_tracker';
+import { toast } from 'sonner';
 
 const ALL_FRAMEWORKS = [
   'Theravada Buddhist', 'Freudian', 'Jungian', 'Hermetic',
@@ -35,8 +36,10 @@ export default function SettingsPage() {
       await setDoc(doc(db, prefsPath), {
         enabledFrameworks: newFrameworks
       }, { merge: true });
+      toast.success(isEnabled ? `Disabled ${framework} framework` : `Enabled ${framework} framework`);
     } catch (err) {
       console.error('Failed to update frameworks:', err);
+      toast.error('Failed to update framework');
     }
   }, [user, enabledFrameworks, prefsPath]);
 

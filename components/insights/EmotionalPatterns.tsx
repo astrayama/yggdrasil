@@ -209,7 +209,10 @@ export function EmotionalPatterns() {
         
         {/* Trend Line Chart */}
         <div className="lg:col-span-2 bg-card border border-border/50 rounded-xl p-6 shadow-sm flex flex-col justify-center items-center">
-          <h4 className="text-sm font-medium text-muted-foreground w-full mb-4 uppercase tracking-wider">Emotion Evolution (Intensity)</h4>
+          <h4 className="text-sm font-medium text-muted-foreground w-full mb-2 uppercase tracking-wider">Emotion Evolution (Intensity)</h4>
+          <p className="text-xs text-muted-foreground w-full mb-6 text-left">
+            Tracks the intensity of your most prevalent emotions over time. Identifying spikes or dips can help you correlate your feelings with life events, revealing emotional triggers and recovery periods.
+          </p>
           <div className="w-full max-w-xl aspect-[5/2]">
             {emotionSeries.length > 0 ? (
               <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
@@ -271,7 +274,10 @@ export function EmotionalPatterns() {
 
         {/* Top Themes */}
         <div className="bg-card border border-border/50 rounded-xl p-6 shadow-sm">
-          <h4 className="text-sm font-medium text-muted-foreground w-full mb-6 uppercase tracking-wider">Dominant Themes</h4>
+          <h4 className="text-sm font-medium text-muted-foreground w-full mb-2 uppercase tracking-wider">Dominant Themes</h4>
+          <p className="text-xs text-muted-foreground w-full mb-6 text-left">
+            Highlights the recurring themes from your recent entries. This acts as a mirror, showing you what naturally preoccupies your mind during this timeframe.
+          </p>
           {topThemes.length > 0 ? (
             <div className="space-y-4">
               {topThemes.map((t, i) => {

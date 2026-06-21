@@ -246,13 +246,16 @@ export function ClusterMap() {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h3 className="text-xl font-display text-foreground">Semantic Cluster Map</h3>
+        <div>
+          <h3 className="text-xl font-display text-foreground mb-1">Semantic Cluster Map</h3>
+          <p className="text-xs text-muted-foreground max-w-2xl">
+            This map clusters your entries automatically based on their underlying semantic meaning using AI embeddings. 
+            Bubbles that group together share deeper thematic similarities. Explore these clusters to uncover recurring 
+            patterns or hidden connections in your thoughts that you might not have explicitly tagged.
+          </p>
+        </div>
         {fetchingAnalysis && <span className="text-xs text-muted-foreground animate-pulse">Loading vectors...</span>}
       </div>
-      
-      <p className="text-sm text-muted-foreground">
-        Your entries are clustered automatically based on their underlying semantic meaning. Bubbles that group together share deeper thematic similarities. Click a node to explore its cluster.
-      </p>
 
       <div className="bg-card border border-border/50 rounded-xl p-4 shadow-sm overflow-hidden" ref={containerRef}>
         {clusterData.length > 0 ? (

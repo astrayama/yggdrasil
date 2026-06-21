@@ -177,18 +177,18 @@ export function StreakCalendar() {
 
   const getIntensityClass = (count: number) => {
     if (count === 0) return 'bg-secondary/20 dark:bg-secondary/10';
-    if (count === 1) return 'bg-primary/40';
-    if (count === 2) return 'bg-primary/70';
-    return 'bg-primary';
+    if (count === 1) return 'bg-emerald-500/40';
+    if (count === 2) return 'bg-emerald-500/70';
+    return 'bg-emerald-500';
   };
 
   const getMatrixIntensityClass = (count: number, maxCount: number) => {
     if (count === 0) return 'bg-secondary/20 dark:bg-secondary/10';
     const ratio = count / (maxCount || 1);
-    if (ratio <= 0.25) return 'bg-primary/30';
-    if (ratio <= 0.5) return 'bg-primary/50';
-    if (ratio <= 0.75) return 'bg-primary/70';
-    return 'bg-primary';
+    if (ratio <= 0.25) return 'bg-emerald-500/30';
+    if (ratio <= 0.5) return 'bg-emerald-500/50';
+    if (ratio <= 0.75) return 'bg-emerald-500/70';
+    return 'bg-emerald-500';
   };
 
   const maxTimeMatrixCount = Math.max(...timeOfWeekData.flat());
@@ -201,7 +201,7 @@ export function StreakCalendar() {
       <div className="grid grid-cols-2 gap-4">
         <div className="bg-card border border-border/50 rounded-xl p-6 text-center shadow-sm">
           <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">Current Streak</p>
-          <div className="text-4xl font-display text-primary flex items-center justify-center gap-2">
+          <div className="text-4xl font-display text-foreground flex items-center justify-center gap-2">
             <span className="text-amber-500">🔥</span>
             {currentStreak} <span className="text-lg text-muted-foreground font-sans lowercase">days</span>
           </div>
@@ -226,8 +226,11 @@ export function StreakCalendar() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Calendar Heatmap */}
-        <div className="lg:col-span-2 bg-card border border-border/50 rounded-xl p-6 shadow-sm overflow-hidden">
-          <h3 className="text-lg font-medium mb-6">Consistency Map</h3>
+        <div className="lg:col-span-2 bg-card border border-border/50 rounded-xl p-6 shadow-sm overflow-hidden flex flex-col">
+          <h3 className="text-lg font-medium mb-1">Consistency Map</h3>
+          <p className="text-xs text-muted-foreground w-full mb-6 text-left">
+            A visual record of your daily journaling habit over the past year. Darker squares indicate days with multiple entries. Building a dense, uninterrupted map helps solidify your reflection habit.
+          </p>
           <div className="overflow-x-auto pb-4">
             <div className="flex gap-1 min-w-max">
               {calendarGrid.map((week, wIdx) => (
@@ -247,8 +250,11 @@ export function StreakCalendar() {
         </div>
 
         {/* Day/Time Heatmap */}
-        <div className="bg-card border border-border/50 rounded-xl p-6 shadow-sm">
-          <h3 className="text-lg font-medium mb-6">When You Write</h3>
+        <div className="bg-card border border-border/50 rounded-xl p-6 shadow-sm flex flex-col">
+          <h3 className="text-lg font-medium mb-1">When You Write</h3>
+          <p className="text-xs text-muted-foreground w-full mb-6 text-left">
+            Shows your preferred times for reflection throughout the week. Recognizing these patterns can help you intentionally schedule deep-thinking time when you naturally have the most energy.
+          </p>
           
           <div className="grid grid-cols-5 gap-1 mb-2">
             <div className="text-[10px] text-muted-foreground"></div>
