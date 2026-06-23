@@ -61,7 +61,7 @@ export function KnowledgeGraph() {
 
     const width = containerRef.current.clientWidth;
     const height = 500;
-    const svg = d3.select(containerRef.current).select('svg');
+    const svg = d3.select(containerRef.current).select<SVGSVGElement>('svg');
     svg.selectAll('*').remove();
 
     // Setup zoom container
@@ -101,7 +101,7 @@ export function KnowledgeGraph() {
 
     // Draw nodes
     const node = g.append('g')
-      .selectAll('circle')
+      .selectAll<SVGCircleElement, unknown>('circle')
       .data(nodes)
       .join('circle')
       .attr('r', d => Math.max(8, Math.min(25, d.weight * 3 + 5)))

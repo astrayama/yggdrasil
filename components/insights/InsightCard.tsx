@@ -121,9 +121,9 @@ export function InsightCard({ analysis }: InsightCardProps) {
         </div>
 
         {/* Patterns & Frameworks */}
-        {(interpretation.patterns_identified?.length > 0 || interpretation.frameworks_applied?.length > 0) && (
+        {((interpretation.patterns_identified?.length ?? 0) > 0 || (interpretation.frameworks_applied?.length ?? 0) > 0) && (
           <div className="flex flex-col sm:flex-row gap-6 pt-4 border-t border-border/40">
-            {interpretation.patterns_identified?.length > 0 && (
+            {(interpretation.patterns_identified?.length ?? 0) > 0 && (
               <div className="flex-1">
                 <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Patterns Identified</h4>
                 <ul className="space-y-2">
@@ -136,11 +136,11 @@ export function InsightCard({ analysis }: InsightCardProps) {
                 </ul>
               </div>
             )}
-            {interpretation.frameworks_applied?.length > 0 && (
+            {(interpretation.frameworks_applied?.length ?? 0) > 0 && (
               <div className="flex-1">
                 <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Frameworks Applied</h4>
                 <div className="flex flex-wrap gap-2">
-                  {interpretation.frameworks_applied.map((fw, idx) => (
+                  {interpretation.frameworks_applied?.map((fw, idx) => (
                     <span 
                       key={idx} 
                       className="px-3 py-1 bg-surface-2 rounded-full text-xs text-foreground/80 border border-gold/30"
