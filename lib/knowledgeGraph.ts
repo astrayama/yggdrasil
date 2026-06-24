@@ -15,9 +15,17 @@ export interface GraphEdge {
   weak?: boolean;
 }
 
+export interface GraphCluster {
+  id: string;
+  nodeIds: string[];
+  entryCount: number;
+  timeSpanStr: string;
+}
+
 export interface GraphData {
   nodes: GraphNode[];
   edges: GraphEdge[];
+  clusters?: GraphCluster[];
 }
 
 /**
@@ -221,8 +229,95 @@ export function buildKnowledgeGraph(entries: (JournalEntry & { analysis?: EntryA
 
   edges.push(...weakEdges);
   
-  // 5. Clean up graph (remove orphaned nodes if strict filtering is desired, 
+  // 6. Recurrence Detection: Find macro-clusters
+  const MIN_CLUSTER_SIZE = 3;
+  const adjList = new Map<string, string[]>();
+  validNodes.forEach(n => adjList.set(n.id, []));
+  
+  // Only use strong semantic edges for clustering
+  edges.filter(e => !e.weak).forEach(e => {
+    adjList.get(e.source)!.push(e.target);
+    adjList.get(e.target)!.push(e.source);
+  });
+
+  const visited = new Set<string>();
+  const components: string[][] = [];
+
+  for (const node of validNodes) {
+    if (!visited.has(node.id)) {
+      const comp: string[] = [];
+      const queue = [node.id];
+      visited.add(node.id);
+      
+      while (queue.length > 0) {
+        const curr = queue.shift()!;
+        comp.push(curr);
+        for (const neighbor of adjList.get(curr)!) {
+          if (!visited.has(neighbor)) {
+            visited.add(neighbor);
+            queue.push(neighbor);
+          }
+        }
+      }
+      components.push(comp);
+    }
+  }
+
+  // Determine span and entry count
+  const clusters: GraphCluster[] = [];
+  // Build lookup from entry ID to entry
+  const entryMap = new Map<string, JournalEntry>();
+  entries.forEach(e => entryMap.set(e.id, e as JournalEntry));
+
+  components.forEach((nodeIds, index) => {
+    const uniqueEntryIds = new Set<string>();
+    nodeIds.forEach(nid => {
+      const node = validNodes.find(n => n.id === nid);
+      node?.entryIds.forEach(eid => uniqueEntryIds.add(eid));
+    });
+
+    if (uniqueEntryIds.size >= MIN_CLUSTER_SIZE) {
+      // It's a recurring theme
+      let minTime = Infinity;
+      let maxTime = -Infinity;
+      uniqueEntryIds.forEach(eid => {
+        const entry = entryMap.get(eid);
+        if (entry && entry.createdAt) {
+          const t = new Date(entry.createdAt).getTime();
+          if (t < minTime) minTime = t;
+          if (t > maxTime) maxTime = t;
+        }
+      });
+
+      let timeSpanStr = '';
+      if (minTime !== Infinity && maxTime !== -Infinity && minTime !== maxTime) {
+        const diffMs = maxTime - minTime;
+        const diffDays = diffMs / (1000 * 60 * 60 * 24);
+        if (diffDays >= 30) {
+          const months = Math.round(diffDays / 30);
+          timeSpanStr = `${months} month${months > 1 ? 's' : ''}`;
+        } else if (diffDays >= 7) {
+          const weeks = Math.round(diffDays / 7);
+          timeSpanStr = `${weeks} week${weeks > 1 ? 's' : ''}`;
+        } else {
+          const days = Math.max(1, Math.round(diffDays));
+          timeSpanStr = `${days} day${days > 1 ? 's' : ''}`;
+        }
+      } else {
+        timeSpanStr = '1 day';
+      }
+
+      clusters.push({
+        id: `cluster_${index}`,
+        nodeIds,
+        entryCount: uniqueEntryIds.size,
+        timeSpanStr
+      });
+    }
+  });
+  
+  // 7. Clean up graph (remove orphaned nodes if strict filtering is desired, 
   // but keeping them might be fine for visualization as floating points)
   
-  return { nodes, edges };
+  return { nodes, edges, clusters };
 }

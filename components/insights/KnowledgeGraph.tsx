@@ -225,8 +225,45 @@ export function KnowledgeGraph() {
       .attr('class', 'node-label fill-foreground/80 pointer-events-none font-medium')
       .style('opacity', 0.8); // Default opacity at k=1
 
+    // Draw cluster labels
+    const clusters = data.clusters || [];
+    const clusterLabel = g.append('g')
+      .selectAll('g')
+      .data(clusters)
+      .join('g')
+      .attr('class', 'cluster-label pointer-events-none');
+    
+    clusterLabel.append('rect')
+      .attr('fill', 'var(--background)')
+      .attr('fill-opacity', 0.85)
+      .attr('stroke', 'var(--gold)')
+      .attr('stroke-width', 1)
+      .attr('rx', 10)
+      .attr('ry', 10);
+      
+    clusterLabel.append('text')
+      .text(d => `Recurring: ${d.entryCount} entries, ${d.timeSpanStr}`)
+      .attr('font-size', '10px')
+      .attr('text-anchor', 'middle')
+      .attr('dominant-baseline', 'middle')
+      .attr('fill', 'var(--gold)')
+      .attr('class', 'font-medium')
+      .each(function() {
+        const bbox = (this as SVGTextElement).getBBox();
+        const paddingX = 8;
+        const paddingY = 4;
+        const rect = (this.parentNode as SVGGElement).querySelector('rect');
+        if (rect) {
+          rect.setAttribute('width', String(bbox.width + paddingX * 2));
+          rect.setAttribute('height', String(bbox.height + paddingY * 2));
+          rect.setAttribute('x', String(bbox.x - paddingX));
+          rect.setAttribute('y', String(bbox.y - paddingY));
+        }
+      });
+
     simulation.on('tick', () => {
       link
+
         .attr('x1', (d: any) => d.source.x)
         .attr('y1', (d: any) => d.source.y)
         .attr('x2', (d: any) => d.target.x)
@@ -239,6 +276,20 @@ export function KnowledgeGraph() {
       label
         .attr('x', (d: any) => d.x)
         .attr('y', (d: any) => d.y);
+
+      clusterLabel.attr('transform', d => {
+        // Calculate centroid of the cluster's nodes
+        const clusterNodes = nodes.filter(n => d.nodeIds.includes(n.id));
+        if (clusterNodes.length === 0) return 'translate(0,0)';
+        
+        const sumX = clusterNodes.reduce((sum, n) => sum + (n.x || 0), 0);
+        const sumY = clusterNodes.reduce((sum, n) => sum + (n.y || 0), 0);
+        const cx = sumX / clusterNodes.length;
+        // Position slightly above the centroid
+        const cy = sumY / clusterNodes.length - 25;
+        
+        return `translate(${cx}, ${cy})`;
+      });
     });
 
     return () => {
