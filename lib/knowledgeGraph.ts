@@ -12,6 +12,7 @@ export interface GraphEdge {
   source: string;
   target: string;
   weight: number;
+  weak?: boolean;
 }
 
 export interface GraphData {
@@ -151,21 +152,74 @@ export function buildKnowledgeGraph(entries: (JournalEntry & { analysis?: EntryA
   
   const SIMILARITY_THRESHOLD = 0.70; // Connect nodes that are semantically close
   
+  const simMatrix = new Map<string, number>();
+  const getSimKey = (id1: string, id2: string) => [id1, id2].sort().join('|');
+  const isConnected = new Set<string>();
+
   for (let i = 0; i < validNodes.length; i++) {
     for (let j = i + 1; j < validNodes.length; j++) {
       const sim = cosineSimilarity(validNodes[i].vector!, validNodes[j].vector!);
+      const simKey = getSimKey(validNodes[i].id, validNodes[j].id);
+      simMatrix.set(simKey, sim);
       
       // If above threshold, add edge
       if (sim >= SIMILARITY_THRESHOLD) {
         edges.push({
           source: validNodes[i].id,
           target: validNodes[j].id,
-          // Store actual similarity as weight (0.7 -> 1.0)
           weight: sim
         });
+        isConnected.add(simKey);
       }
     }
   }
+  
+  // 5. Enforce minimum connections (prevent islands)
+  const MIN_EDGES = 2;
+  const edgeCount = new Map<string, number>();
+  validNodes.forEach(n => edgeCount.set(n.id, 0));
+  edges.forEach(e => {
+    edgeCount.set(e.source, (edgeCount.get(e.source) || 0) + 1);
+    edgeCount.set(e.target, (edgeCount.get(e.target) || 0) + 1);
+  });
+
+  const weakEdges: GraphEdge[] = [];
+
+  for (const node of validNodes) {
+    const needed = MIN_EDGES - (edgeCount.get(node.id) || 0);
+    if (needed > 0) {
+      // Find nearest neighbors
+      const similarities = validNodes
+        .filter(n => n.id !== node.id)
+        .map(n => ({
+          targetId: n.id,
+          sim: simMatrix.get(getSimKey(node.id, n.id)) || 0
+        }))
+        .filter(target => !isConnected.has(getSimKey(node.id, target.targetId)))
+        .sort((a, b) => b.sim - a.sim);
+      
+      let added = 0;
+      for (const neighbor of similarities) {
+        if (added >= needed) break;
+        
+        const simKey = getSimKey(node.id, neighbor.targetId);
+        if (!isConnected.has(simKey)) {
+          weakEdges.push({
+            source: node.id,
+            target: neighbor.targetId,
+            weight: neighbor.sim,
+            weak: true
+          });
+          isConnected.add(simKey);
+          edgeCount.set(node.id, (edgeCount.get(node.id) || 0) + 1);
+          edgeCount.set(neighbor.targetId, (edgeCount.get(neighbor.targetId) || 0) + 1);
+          added++;
+        }
+      }
+    }
+  }
+
+  edges.push(...weakEdges);
   
   // 5. Clean up graph (remove orphaned nodes if strict filtering is desired, 
   // but keeping them might be fine for visualization as floating points)

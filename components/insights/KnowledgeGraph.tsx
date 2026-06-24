@@ -37,10 +37,22 @@ export function KnowledgeGraph() {
   // Drill-down state
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   
+  // Hover/Popup state
+  const [hoveredNode, setHoveredNode] = useState<{ node: GraphNode; x: number; y: number } | null>(null);
+  const currentTransform = useRef<d3.ZoomTransform>(d3.zoomIdentity);
+  
   // We need the raw entries to show drilldown details. We can just fetch them locally.
   const { data: entries } = useFirestore<JournalEntry>(
     user ? `users/${user.uid}/entries` : ''
   );
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setHoveredNode(null);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -88,6 +100,7 @@ export function KnowledgeGraph() {
       .scaleExtent([0.1, 4])
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
+        currentTransform.current = event.transform;
         const scale = event.transform.k;
         
         // Hide labels when zoomed out
@@ -100,6 +113,12 @@ export function KnowledgeGraph() {
       });
 
     svg.call(zoom);
+
+    svg.on('click', (event) => {
+      if (event.target.tagName === 'svg') {
+        setHoveredNode(null);
+      }
+    });
 
     // D3 Data copies since forceSimulation mutates them
     const nodes = data.nodes.map(d => ({ ...d })) as (GraphNode & d3.SimulationNodeDatum)[];
@@ -133,8 +152,9 @@ export function KnowledgeGraph() {
       .join('line')
       .attr('class', 'node-link')
       .attr('stroke', '#a1a1aa') // muted-foreground equivalent
-      .attr('stroke-opacity', d => Math.max(0.2, d.weight)) // Cosine similarity
-      .attr('stroke-width', d => Math.max(1, d.weight * 3));
+      .attr('stroke-dasharray', (d: any) => d.weak ? '2,2' : 'none')
+      .attr('stroke-opacity', (d: any) => d.weak ? Math.max(0.1, d.weight * 0.5) : Math.max(0.2, d.weight)) // Cosine similarity
+      .attr('stroke-width', (d: any) => d.weak ? 0.5 : Math.max(1, d.weight * 3));
 
     // Color scale by type
     const colorScale = d3.scaleOrdinal()
@@ -150,7 +170,8 @@ export function KnowledgeGraph() {
       .attr('fill', d => colorScale(d.type) as string)
       .attr('stroke', '#fff')
       .attr('stroke-width', 2)
-      .attr('class', 'cursor-pointer transition-all hover:stroke-foreground/50')
+      .attr('class', 'cursor-pointer transition-all hover:stroke-foreground/50 focus:outline-none focus:stroke-primary')
+      .attr('tabindex', 0)
       .call(d3.drag<SVGCircleElement, any>()
         .on('start', (event, d) => {
           if (!event.active) simulation.alphaTarget(0.3).restart();
@@ -168,10 +189,29 @@ export function KnowledgeGraph() {
         })
       )
       .on('click', (event, d) => {
-        // Find the original node to pass cleanly to state
         const originalNode = data.nodes.find(n => n.id === d.id);
-        if (originalNode) setSelectedNode(originalNode);
-      });
+        if (originalNode) {
+          setSelectedNode(originalNode);
+          const t = currentTransform.current;
+          setHoveredNode({ node: originalNode, x: d.x * t.k + t.x, y: d.y * t.k + t.y });
+        }
+      })
+      .on('mouseenter', (event, d) => {
+        const originalNode = data.nodes.find(n => n.id === d.id);
+        if (originalNode) {
+          const t = currentTransform.current;
+          setHoveredNode({ node: originalNode, x: d.x * t.k + t.x, y: d.y * t.k + t.y });
+        }
+      })
+      .on('focus', (event, d) => {
+        const originalNode = data.nodes.find(n => n.id === d.id);
+        if (originalNode) {
+          const t = currentTransform.current;
+          setHoveredNode({ node: originalNode, x: d.x * t.k + t.x, y: d.y * t.k + t.y });
+        }
+      })
+      .on('mouseleave', () => setHoveredNode(null))
+      .on('blur', () => setHoveredNode(null));
 
     // Draw labels
     const label = g.append('g')
@@ -251,6 +291,17 @@ export function KnowledgeGraph() {
             <div className="flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-[#3b82f6]"></div>Concepts</div>
           </div>
         )}
+
+        {/* Hover Popover */}
+        {hoveredNode && entries && (
+          <NodePopover 
+            node={hoveredNode.node} 
+            x={hoveredNode.x} 
+            y={hoveredNode.y} 
+            entries={entries} 
+            containerRef={containerRef}
+          />
+        )}
       </div>
 
       {/* Drill-down panel */}
@@ -293,6 +344,56 @@ export function KnowledgeGraph() {
                No accessible entries found for this node.
              </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function NodePopover({ node, x, y, entries, containerRef }: { node: GraphNode, x: number, y: number, entries: JournalEntry[], containerRef: React.RefObject<HTMLDivElement> }) {
+  const relatedEntries = entries
+    .filter(e => node.entryIds.includes(e.id))
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  
+  const entry = relatedEntries[0];
+  if (!entry) return null;
+
+  const dateStr = new Date(entry.createdAt).toLocaleDateString();
+  const textContent = entry.content.replace(/<[^>]+>/g, '');
+  const snippet = textContent.length > 120 ? textContent.slice(0, 120) + '...' : textContent;
+
+  const containerWidth = containerRef.current?.clientWidth || 800;
+  const containerHeight = 500;
+  
+  const cardWidth = 280;
+  const cardHeight = 120; // approximate
+  
+  // Boundary check
+  let left = x + 20;
+  let top = y + 20;
+  
+  if (left + cardWidth > containerWidth) {
+    left = x - cardWidth - 20;
+  }
+  if (top + cardHeight > containerHeight) {
+    top = y - cardHeight - 20;
+  }
+
+  return (
+    <div 
+      className="absolute bg-background/95 backdrop-blur border border-border/50 rounded-xl p-4 shadow-xl pointer-events-none animate-in fade-in zoom-in-95 duration-200"
+      style={{ left, top, width: cardWidth, zIndex: 50 }}
+    >
+      <div className="flex justify-between items-start mb-2">
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">{node.type}</span>
+        <span className="text-[10px] text-muted-foreground">{dateStr}</span>
+      </div>
+      <h4 className="text-sm font-semibold text-foreground mb-1 capitalize leading-tight">{node.label}</h4>
+      <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">{snippet}</p>
+      
+      {relatedEntries.length > 1 && (
+        <div className="mt-3 text-[10px] text-muted-foreground border-t border-border/40 pt-2 font-medium">
+          + {relatedEntries.length - 1} other mentions
         </div>
       )}
     </div>
