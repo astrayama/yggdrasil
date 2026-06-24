@@ -9,6 +9,23 @@ import type { GraphNode, GraphEdge, GraphData } from '@/lib/knowledgeGraph';
 import { logKnowledgeGraphViewed } from '@/lib/analytics/client';
 import Link from 'next/link';
 
+// Force Simulation Tuning Constants
+const FORCE = {
+  // Edge distance bounds (shorter for stronger similarity)
+  linkDistanceMin: 30,
+  linkDistanceMax: 150,
+  // Edge strength multiplier (stronger pull for higher similarity)
+  linkStrengthMultiplier: 1.0,
+  // Repulsion strength (less negative = less blow-apart)
+  chargeStrength: -60,
+  // Repulsion max distance (prevents distant nodes from pushing each other)
+  chargeDistanceMax: 200,
+  // Padding added to node radius to prevent overlap
+  collidePadding: 4,
+  // Gentle pull toward center to keep clusters in frame
+  centerGravity: 0.03
+};
+
 export function KnowledgeGraph() {
   const { user } = useAuth();
   const [data, setData] = useState<GraphData | null>(null);
@@ -68,9 +85,18 @@ export function KnowledgeGraph() {
     const g = svg.append('g');
 
     const zoom = d3.zoom<SVGSVGElement, unknown>()
-      .scaleExtent([0.5, 4])
+      .scaleExtent([0.1, 4])
       .on('zoom', (event) => {
         g.attr('transform', event.transform);
+        const scale = event.transform.k;
+        
+        // Hide labels when zoomed out
+        const textOpacity = scale < 0.8 ? 0 : Math.min(1, (scale - 0.8) * 4);
+        g.selectAll('.node-label').style('opacity', textOpacity);
+        
+        // Dim links when zoomed out to reduce visual noise
+        const linkOpacity = scale < 0.6 ? 0.3 : Math.min(1, scale);
+        g.selectAll('.node-link').style('opacity', linkOpacity);
       });
 
     svg.call(zoom);
@@ -80,16 +106,32 @@ export function KnowledgeGraph() {
     const links = data.edges.map(d => ({ ...d })) as (GraphEdge & d3.SimulationLinkDatum<GraphNode & d3.SimulationNodeDatum>)[];
 
     const simulation = d3.forceSimulation(nodes)
-      .force('link', d3.forceLink(links).id((d: any) => d.id).distance(100))
-      .force('charge', d3.forceManyBody().strength(-200))
-      .force('center', d3.forceCenter(width / 2, height / 2))
-      .force('collide', d3.forceCollide().radius((d: any) => Math.max(10, d.weight * 5 + 5)));
+      .force('link', d3.forceLink(links)
+        .id((d: any) => d.id)
+        .distance((d: any) => {
+          const weight = d.weight || 0;
+          return FORCE.linkDistanceMax - (weight * (FORCE.linkDistanceMax - FORCE.linkDistanceMin));
+        })
+        .strength((d: any) => Math.max(0.1, (d.weight || 0)) * FORCE.linkStrengthMultiplier)
+      )
+      .force('charge', d3.forceManyBody()
+        .strength(FORCE.chargeStrength)
+        .distanceMax(FORCE.chargeDistanceMax)
+      )
+      .force('x', d3.forceX(width / 2).strength(FORCE.centerGravity))
+      .force('y', d3.forceY(height / 2).strength(FORCE.centerGravity))
+      .force('collide', d3.forceCollide().radius((d: any) => {
+        // Matches the drawn circle radius plus padding
+        const nodeRadius = Math.max(8, Math.min(25, (d.weight || 0) * 3 + 5));
+        return nodeRadius + FORCE.collidePadding;
+      }));
 
     // Draw links
     const link = g.append('g')
       .selectAll('line')
       .data(links)
       .join('line')
+      .attr('class', 'node-link')
       .attr('stroke', '#a1a1aa') // muted-foreground equivalent
       .attr('stroke-opacity', d => Math.max(0.2, d.weight)) // Cosine similarity
       .attr('stroke-width', d => Math.max(1, d.weight * 3));
@@ -140,7 +182,8 @@ export function KnowledgeGraph() {
       .attr('font-size', '10px')
       .attr('dx', 12)
       .attr('dy', 4)
-      .attr('class', 'fill-foreground/80 pointer-events-none font-medium');
+      .attr('class', 'node-label fill-foreground/80 pointer-events-none font-medium')
+      .style('opacity', 0.8); // Default opacity at k=1
 
     simulation.on('tick', () => {
       link
