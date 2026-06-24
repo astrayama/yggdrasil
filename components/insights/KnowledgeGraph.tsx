@@ -41,6 +41,10 @@ export function KnowledgeGraph() {
   const [hoveredNode, setHoveredNode] = useState<{ node: GraphNode; x: number; y: number } | null>(null);
   const currentTransform = useRef<d3.ZoomTransform>(d3.zoomIdentity);
   
+  const initialRender = useRef(true);
+  const seenNodeIds = useRef(new Set<string>());
+  const seenEdgeIds = useRef(new Set<string>());
+  
   // We need the raw entries to show drilldown details. We can just fetch them locally.
   const { data: entries } = useFirestore<JournalEntry>(
     user ? `users/${user.uid}/entries` : ''
@@ -92,6 +96,25 @@ export function KnowledgeGraph() {
     const height = 500;
     const svg = d3.select(containerRef.current).select<SVGSVGElement>('svg');
     svg.selectAll('*').remove();
+
+    const isInitial = initialRender.current;
+    if (isInitial) initialRender.current = false;
+    
+    const isNewNode = (d: any) => !isInitial && !seenNodeIds.current.has(d.id);
+    const isNewEdge = (d: any) => {
+      const sourceId = typeof d.source === 'object' ? d.source.id : d.source;
+      const targetId = typeof d.target === 'object' ? d.target.id : d.target;
+      const edgeId = `${sourceId}-${targetId}`;
+      return !isInitial && !seenEdgeIds.current.has(edgeId);
+    };
+
+    // Update sets
+    data.nodes.forEach(n => seenNodeIds.current.add(n.id));
+    data.edges.forEach(e => {
+      const sourceId = typeof e.source === 'object' ? (e.source as any).id : e.source;
+      const targetId = typeof e.target === 'object' ? (e.target as any).id : e.target;
+      seenEdgeIds.current.add(`${sourceId}-${targetId}`);
+    });
 
     // Setup zoom container
     const g = svg.append('g');
@@ -150,10 +173,11 @@ export function KnowledgeGraph() {
       .selectAll('line')
       .data(links)
       .join('line')
-      .attr('class', 'node-link')
-      .attr('stroke', '#a1a1aa') // muted-foreground equivalent
-      .attr('stroke-dasharray', (d: any) => d.weak ? '2,2' : 'none')
-      .attr('stroke-opacity', (d: any) => d.weak ? Math.max(0.1, d.weight * 0.5) : Math.max(0.2, d.weight)) // Cosine similarity
+      .attr('class', (d: any) => isNewEdge(d) ? 'node-link animate-in fade-in duration-1000' : 'node-link')
+      .style('animation-fill-mode', 'both')
+      .attr('stroke', 'var(--muted-foreground)')
+      .attr('stroke-dasharray', (d: any) => d.weak ? '2,4' : 'none')
+      .attr('stroke-opacity', (d: any) => d.weak ? 0.15 : Math.max(0.25, d.weight))
       .attr('stroke-width', (d: any) => d.weak ? 0.5 : Math.max(1, d.weight * 3));
 
     // Color scale by type
@@ -170,7 +194,11 @@ export function KnowledgeGraph() {
       .attr('fill', d => colorScale(d.type) as string)
       .attr('stroke', '#fff')
       .attr('stroke-width', 2)
-      .attr('class', 'cursor-pointer transition-all hover:stroke-foreground/50 focus:outline-none focus:stroke-primary')
+      .attr('class', (d: any) => {
+        const baseClass = 'cursor-pointer transition-all hover:stroke-foreground/50 focus:outline-none focus:stroke-primary';
+        return isNewNode(d) ? `${baseClass} animate-in zoom-in fade-in duration-1000` : baseClass;
+      })
+      .style('animation-fill-mode', 'both')
       .attr('tabindex', 0)
       .call(d3.drag<SVGCircleElement, any>()
         .on('start', (event, d) => {
@@ -222,7 +250,11 @@ export function KnowledgeGraph() {
       .attr('font-size', '10px')
       .attr('dx', 12)
       .attr('dy', 4)
-      .attr('class', 'node-label fill-foreground/80 pointer-events-none font-medium')
+      .attr('class', (d: any) => {
+        const baseClass = 'node-label fill-foreground/80 pointer-events-none font-medium';
+        return isNewNode(d) ? `${baseClass} animate-in fade-in duration-1000` : baseClass;
+      })
+      .style('animation-fill-mode', 'both')
       .style('opacity', 0.8); // Default opacity at k=1
 
     // Draw cluster labels
@@ -234,9 +266,9 @@ export function KnowledgeGraph() {
       .attr('class', 'cluster-label pointer-events-none');
     
     clusterLabel.append('rect')
-      .attr('fill', 'var(--background)')
-      .attr('fill-opacity', 0.85)
-      .attr('stroke', 'var(--gold)')
+      .attr('fill', 'var(--surface-2)')
+      .attr('fill-opacity', 0.9)
+      .attr('stroke', 'var(--border)')
       .attr('stroke-width', 1)
       .attr('rx', 10)
       .attr('ry', 10);
@@ -246,7 +278,7 @@ export function KnowledgeGraph() {
       .attr('font-size', '10px')
       .attr('text-anchor', 'middle')
       .attr('dominant-baseline', 'middle')
-      .attr('fill', 'var(--gold)')
+      .attr('fill', 'var(--muted-foreground)')
       .attr('class', 'font-medium')
       .each(function() {
         const bbox = (this as SVGTextElement).getBBox();
