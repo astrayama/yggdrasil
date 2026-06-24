@@ -5,6 +5,7 @@ import type { MoodState } from '@/components/journal/MoodSliders';
 
 export interface CreateEntryPayload {
   userId: string;
+  title?: string;
   content: string;
   entryType?: EntryType | null;
   mood?: MoodState | null;
@@ -19,7 +20,7 @@ export interface CreateEntryPayload {
  * @returns The generated entry ID.
  */
 export async function createEntry(payload: CreateEntryPayload): Promise<string> {
-  const { userId, content, entryType, mood } = payload;
+  const { userId, title, content, entryType, mood } = payload;
   
   if (!userId) {
     throw new Error('User ID is required to create an entry.');
@@ -41,6 +42,10 @@ export async function createEntry(payload: CreateEntryPayload): Promise<string> 
     createdAt: serverTimestamp(),
   };
 
+  if (title) {
+    entryData.title = title;
+  }
+
   if (entryType) {
     entryData.entryType = entryType;
   }
@@ -61,12 +66,16 @@ export async function updateEntry(
   entryId: string,
   payload: Partial<CreateEntryPayload>
 ): Promise<void> {
-  const { content, entryType, mood } = payload;
+  const { title, content, entryType, mood } = payload;
   const entryRef = doc(db, `users/${userId}/entries/${entryId}`);
   
   const updateData: Record<string, any> = {
     updatedAt: serverTimestamp(),
   };
+
+  if (title !== undefined) {
+    updateData.title = title;
+  }
 
   if (content !== undefined) {
     updateData.content = content;

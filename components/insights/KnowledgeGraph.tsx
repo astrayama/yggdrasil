@@ -416,8 +416,8 @@ export function KnowledgeGraph() {
                       {new Date(entry.createdAt).toLocaleDateString()}
                     </span>
                   </div>
-                  <p className="text-sm text-muted-foreground line-clamp-3">
-                    {entry.content.replace(/<[^>]+>/g, '')}
+                  <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">
+                    {getRelevantSnippet(entry.content, selectedNode.label)}
                   </p>
                 </Link>
               ))}
@@ -442,8 +442,7 @@ function NodePopover({ node, x, y, entries, containerRef }: { node: GraphNode, x
   if (!entry) return null;
 
   const dateStr = new Date(entry.createdAt).toLocaleDateString();
-  const textContent = entry.content.replace(/<[^>]+>/g, '');
-  const snippet = textContent.length > 120 ? textContent.slice(0, 120) + '...' : textContent;
+  const snippet = getRelevantSnippet(entry.content, node.label);
 
   const containerWidth = containerRef.current?.clientWidth || 800;
   const containerHeight = 500;
@@ -481,4 +480,69 @@ function NodePopover({ node, x, y, entries, containerRef }: { node: GraphNode, x
       )}
     </div>
   );
+}
+
+function getRelevantSnippet(htmlContent: string, keyword: string): React.ReactNode {
+  const plainText = htmlContent.replace(/<[^>]+>/g, '');
+  if (!keyword) return plainText.length > 120 ? plainText.slice(0, 120) + '...' : plainText;
+
+  // Escape regex characters in the keyword and use word boundaries
+  const escapedKeyword = keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const regex = new RegExp(`\\b${escapedKeyword}\\b`, 'i');
+  
+  const match = plainText.match(regex);
+  const index = match?.index;
+
+  if (index === undefined) {
+    // If the exact word isn't found, fallback to just showing the beginning of the entry.
+    return plainText.length > 120 ? plainText.slice(0, 120) + '...' : plainText;
+  }
+
+  // Try to extract the sentence containing the keyword
+  let startIdx = index;
+  while (startIdx > 0 && !['.', '!', '?'].includes(plainText[startIdx])) {
+    startIdx--;
+  }
+  if (startIdx > 0) startIdx++; // skip the punctuation
+
+  let endIdx = index + match[0].length;
+  while (endIdx < plainText.length && !['.', '!', '?'].includes(plainText[endIdx])) {
+    endIdx++;
+  }
+  if (endIdx < plainText.length) endIdx++; // include the punctuation
+
+  let snippet = plainText.slice(startIdx, endIdx).trim();
+  
+  // Fallback to purely character-based if the sentence is insanely long
+  if (snippet.length > 200) {
+    const s = Math.max(0, index - 60);
+    const e = Math.min(plainText.length, index + match[0].length + 60);
+    snippet = plainText.slice(s, e).trim();
+    return (
+      <>
+        {s > 0 && '...'}
+        {snippet.substring(0, index - s)}
+        <strong className="text-foreground font-semibold">{plainText.substring(index, index + match[0].length)}</strong>
+        {snippet.substring(index - s + match[0].length)}
+        {e < plainText.length && '...'}
+      </>
+    );
+  }
+
+  // Highlight the keyword in the sentence
+  const snippetMatch = snippet.match(regex);
+  if (snippetMatch && snippetMatch.index !== undefined) {
+    const keywordIdx = snippetMatch.index;
+    return (
+      <>
+        {startIdx > 0 && '...'}
+        {snippet.substring(0, keywordIdx)}
+        <strong className="text-foreground font-semibold">{snippet.substring(keywordIdx, keywordIdx + snippetMatch[0].length)}</strong>
+        {snippet.substring(keywordIdx + snippetMatch[0].length)}
+        {endIdx < plainText.length && '...'}
+      </>
+    );
+  }
+
+  return startIdx > 0 ? '...' + snippet : snippet;
 }

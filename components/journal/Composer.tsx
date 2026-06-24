@@ -18,6 +18,7 @@ export interface ComposerProps {
 
 export function Composer({ initialEntry, onSave }: ComposerProps = {}) {
   const editorRef = useRef<HTMLDivElement>(null);
+  const [title, setTitle] = useState(initialEntry?.title || "");
   const [content, setContent] = useState(initialEntry?.content || "");
   const [entryType, setEntryType] = useState<EntryType>(
     initialEntry?.entryType 
@@ -106,6 +107,7 @@ export function Composer({ initialEntry, onSave }: ComposerProps = {}) {
       
       if (initialEntry) {
         await updateEntry(auth.currentUser.uid, initialEntry.id, {
+          title: title.trim() || undefined,
           content,
           entryType,
           mood
@@ -115,6 +117,7 @@ export function Composer({ initialEntry, onSave }: ComposerProps = {}) {
       } else {
         entryId = await createEntry({
           userId: auth.currentUser.uid,
+          title: title.trim() || undefined,
           content,
           entryType,
           mood
@@ -135,6 +138,7 @@ export function Composer({ initialEntry, onSave }: ComposerProps = {}) {
 
       // Clear composer if creating new
       if (!initialEntry) {
+        setTitle("");
         setContent("");
         if (editorRef.current) {
           editorRef.current.innerHTML = "";
@@ -221,14 +225,23 @@ export function Composer({ initialEntry, onSave }: ComposerProps = {}) {
           />
         </div>
       ) : (
-        <div
-          ref={editorRef}
-          className="flex-1 p-8 outline-none overflow-y-auto text-body-lg leading-relaxed text-foreground bg-transparent
-                     empty:before:content-[attr(data-placeholder)] empty:before:text-foreground/30 empty:before:pointer-events-none empty:before:block"
-          contentEditable
-          onInput={handleInput}
-          data-placeholder="Write your entry here..."
-        />
+        <div className="flex-1 flex flex-col">
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Untitled Entry"
+            className="w-full bg-transparent px-8 pt-8 pb-4 text-2xl sm:text-3xl font-display text-foreground placeholder:text-muted-foreground/40 outline-none"
+          />
+          <div
+            ref={editorRef}
+            className="flex-1 px-8 pb-8 outline-none overflow-y-auto text-body-lg leading-relaxed text-foreground bg-transparent
+                       empty:before:content-[attr(data-placeholder)] empty:before:text-foreground/30 empty:before:pointer-events-none empty:before:block"
+            contentEditable
+            onInput={handleInput}
+            data-placeholder="Write your entry here..."
+          />
+        </div>
       )}
 
       {/* Post-Composer Options */}
