@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { collection, query, orderBy, limit, getDocs, startAfter, DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
@@ -10,6 +10,11 @@ import { createConverter } from '@/lib/firebase/converters';
 
 const PAGE_SIZE = 10;
 
+interface SearchEventPayload {
+  search_type: 'full_text';
+  query: string;
+}
+
 export function EntryList() {
   const { user } = useAuth();
   const [entries, setEntries] = useState<JournalEntry[]>([]);
@@ -18,6 +23,9 @@ export function EntryList() {
   const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<JournalEntry> | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+
+  // New states added for handling search functionality
+  const [searchQuery, setSearchQuery] = useState('');
 
   const fetchEntries = useCallback(async (isInitial = false) => {
     if (!user) return;
@@ -66,9 +74,43 @@ export function EntryList() {
       setEntries([]);
       setLastVisible(null);
       setHasMore(true);
+      setSearchQuery(''); // Clear search on mount/user change
       fetchEntries(true);
     }
   }, [user, fetchEntries]);
+
+  // Helper method added to handle firing the entry_search tracking event
+  const fireEntrySearch = useCallback((queryStr: string) => {
+    const eventPayload: SearchEventPayload = {
+      search_type: 'full_text',
+      query: queryStr
+    };
+    window.dispatchEvent(new CustomEvent('entry_search', { detail: eventPayload }));
+  }, []);
+
+  // Handler added to catch input mutations, evaluate triggers, and check for empty strings
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+
+    const trimmed = value.trim();
+    if (trimmed) {
+      fireEntrySearch(trimmed);
+    }
+  };
+
+  // Memoized filter added to keep mutations clear and instantly restore on clear
+  const filteredEntries = useMemo(() => {
+    const trimmedQuery = searchQuery.trim();
+    if (!trimmedQuery) {
+      return entries;
+    }
+
+    const lowerCaseQuery = trimmedQuery.toLowerCase();
+    return entries.filter(entry => 
+      entry.content.toLowerCase().includes(lowerCaseQuery)
+    );
+  }, [entries, searchQuery]);
 
   if (!user) return null;
 
@@ -115,51 +157,79 @@ export function EntryList() {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-4">
-        {entries.map((entry) => {
-          // Strip HTML from content for the preview
-          const plainText = entry.content.replace(/<[^>]+>/g, ' ');
-          const preview = plainText.length > 150 ? plainText.slice(0, 150).trim() + '...' : plainText;
-
-          return (
-            <Link 
-              key={entry.id} 
-              href={`/journal/${entry.id}`}
-              className="block p-6 bg-surface-2 hover:bg-surface-2/80 border border-border/60 hover:border-gold/40 transition-all duration-300 rounded-xl group"
-            >
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
-                <time className="text-sm text-gold/80 font-medium tracking-wide" suppressHydrationWarning>
-                  {new Date(entry.createdAt).toLocaleDateString(undefined, {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric'
-                  })}
-                </time>
-
-                <div className="flex items-center gap-2 flex-wrap">
-                  {entry.entryType && (
-                    <span className="px-2.5 py-1 bg-surface rounded-full text-[10px] uppercase tracking-wider text-foreground/80 border border-border/50">
-                      {entry.entryType}
-                    </span>
-                  )}
-                  {entry.moodLabel && entry.moodLabel !== 'Unset' && (
-                    <span className="px-2.5 py-1 bg-surface rounded-full text-[10px] uppercase tracking-wider text-sage border border-sage/20">
-                      {entry.moodLabel}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              <p className="text-foreground/80 leading-relaxed text-sm group-hover:text-foreground transition-colors">
-                {preview}
-              </p>
-            </Link>
-          );
-        })}
+      {/* Search Input elements structurally added at the top of list container */}
+      <div className="relative">
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={handleSearchChange}
+          placeholder="🔍 Search entries by content..."
+          className="w-full px-4 py-2.5 bg-surface-2 border border-border/40 focus:border-gold/60 focus:outline-none rounded-xl text-sm text-foreground transition-all duration-200 placeholder:text-muted-foreground/60"
+        />
+        {searchQuery && (
+          <button 
+            onClick={() => setSearchQuery('')}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Clear search"
+          >
+            Clear
+          </button>
+        )}
       </div>
 
-      {hasMore && (
+      {filteredEntries.length === 0 ? (
+        // Fallback interface block added when queries leave zero content matches
+        <div className="text-center py-12 border border-border/20 rounded-xl bg-surface-2/10">
+          <p className="text-muted-foreground text-sm">No entries matched your search query.</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {filteredEntries.map((entry) => {
+            // Strip HTML from content for the preview
+            const plainText = entry.content.replace(/<[^>]+>/g, ' ');
+            const preview = plainText.length > 150 ? plainText.slice(0, 150).trim() + '...' : plainText;
+
+            return (
+              <Link 
+                key={entry.id} 
+                href={`/journal/${entry.id}`}
+                className="block p-6 bg-surface-2 hover:bg-surface-2/80 border border-border/60 hover:border-gold/40 transition-all duration-300 rounded-xl group"
+              >
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
+                  <time className="text-sm text-gold/80 font-medium tracking-wide" suppressHydrationWarning>
+                    {new Date(entry.createdAt).toLocaleDateString(undefined, {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'short',
+                      day: 'numeric'
+                    })}
+                  </time>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {entry.entryType && (
+                      <span className="px-2.5 py-1 bg-surface rounded-full text-[10px] uppercase tracking-wider text-foreground/80 border border-border/50">
+                        {entry.entryType}
+                      </span>
+                    )}
+                    {entry.moodLabel && entry.moodLabel !== 'Unset' && (
+                      <span className="px-2.5 py-1 bg-surface rounded-full text-[10px] uppercase tracking-wider text-sage border border-sage/20">
+                        {entry.moodLabel}
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <p className="text-foreground/80 leading-relaxed text-sm group-hover:text-foreground transition-colors">
+                  {preview}
+                </p>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Pagination wrapper logic adjusted to hide button explicitly when an active search query is applied */}
+      {hasMore && !searchQuery.trim() && (
         <div className="pt-6 flex justify-center">
           <button
             onClick={() => fetchEntries(false)}
