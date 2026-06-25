@@ -169,16 +169,16 @@ export function KnowledgeGraph() {
         return nodeRadius + FORCE.collidePadding;
       }));
 
-    // Draw links — thin, subtle lines like Obsidian
+    // Draw links — thin, subtle purple lines like Obsidian
     const link = g.append('g')
       .selectAll('line')
       .data(links)
       .join('line')
       .attr('class', (d: any) => isNewEdge(d) ? 'node-link animate-in fade-in duration-1000' : 'node-link')
       .style('animation-fill-mode', 'both')
-      .attr('stroke', (d: any) => d.weak ? 'rgba(123, 174, 138, 0.15)' : 'rgba(123, 174, 138, 0.35)')
+      .attr('stroke', (d: any) => d.weak ? 'rgba(167, 139, 250, 0.4)' : 'rgba(167, 139, 250, 0.8)')
       .attr('stroke-dasharray', (d: any) => d.weak ? '3,5' : 'none')
-      .attr('stroke-width', (d: any) => d.weak ? 0.5 : 1);
+      .attr('stroke-width', (d: any) => d.weak ? 1 : 1.5);
 
     // Color scale by type
     const colorScale = d3.scaleOrdinal()
@@ -230,6 +230,30 @@ export function KnowledgeGraph() {
           const t = currentTransform.current;
           setHoveredNode({ node: originalNode, x: d.x * t.k + t.x, y: d.y * t.k + t.y });
         }
+        
+        // Highlight connected nodes and edges
+        const connectedNodeIds = new Set<string>();
+        connectedNodeIds.add(d.id);
+        
+        link.attr('stroke-opacity', (l: any) => {
+          if (l.source.id === d.id || l.target.id === d.id) {
+            connectedNodeIds.add(l.source.id);
+            connectedNodeIds.add(l.target.id);
+            return 1;
+          }
+          return 0.1;
+        })
+        .attr('stroke', (l: any) => {
+          if (l.source.id === d.id || l.target.id === d.id) return '#a855f7'; // Bright purple for highlight
+          return l.weak ? 'rgba(167, 139, 250, 0.4)' : 'rgba(167, 139, 250, 0.8)';
+        })
+        .attr('stroke-width', (l: any) => {
+          if (l.source.id === d.id || l.target.id === d.id) return 2.5;
+          return l.weak ? 1 : 1.5;
+        });
+
+        node.attr('opacity', (n: any) => connectedNodeIds.has(n.id) ? 1 : 0.2);
+        label.attr('opacity', (n: any) => connectedNodeIds.has(n.id) ? 1 : 0.2);
       })
       .on('focus', (event, d) => {
         const originalNode = data.nodes.find(n => n.id === d.id);
@@ -238,7 +262,16 @@ export function KnowledgeGraph() {
           setHoveredNode({ node: originalNode, x: d.x * t.k + t.x, y: d.y * t.k + t.y });
         }
       })
-      .on('mouseleave', () => setHoveredNode(null))
+      .on('mouseleave', () => {
+        setHoveredNode(null);
+        // Restore styles
+        link.attr('stroke-opacity', 1)
+            .attr('stroke', (l: any) => l.weak ? 'rgba(167, 139, 250, 0.4)' : 'rgba(167, 139, 250, 0.8)')
+            .attr('stroke-width', (l: any) => l.weak ? 1 : 1.5);
+            
+        node.attr('opacity', 1);
+        label.attr('opacity', 0.7);
+      })
       .on('blur', () => setHoveredNode(null));
 
     // Draw labels

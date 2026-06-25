@@ -97,13 +97,21 @@ export function buildKnowledgeGraph(
       }
     }
     
+    // Helper to format labels nicely
+    const toTitleCase = (str: string) => {
+      return str.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+    };
+
     // Process themes
     if (Array.isArray(entry.analysis.themes)) {
       entry.analysis.themes.forEach(theme => {
         if (!theme || typeof theme !== 'string') return;
-        const id = `theme_${theme.toLowerCase().replace(/\s+/g, '_')}`;
+        // Clean up overly long themes for presentation (max 3-4 words usually looks best)
+        const cleanTheme = toTitleCase(theme.trim());
+        const id = `theme_${theme.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+        
         if (!nodeMap.has(id)) {
-          nodeMap.set(id, { label: theme, type: 'theme', weight: 0, embeddings: [], entryIds: [] });
+          nodeMap.set(id, { label: cleanTheme, type: 'theme', weight: 0, embeddings: [], entryIds: [] });
         }
         const node = nodeMap.get(id)!;
         node.weight++;
@@ -117,9 +125,11 @@ export function buildKnowledgeGraph(
       entry.analysis.entities.forEach(entity => {
         if (!entity || typeof entity !== 'object' || !entity.name || typeof entity.name !== 'string') return;
         const type = entity.type || 'concept';
-        const id = `entity_${type}_${entity.name.toLowerCase().replace(/\s+/g, '_')}`;
+        const cleanName = toTitleCase(entity.name.trim());
+        const id = `entity_${type}_${entity.name.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+        
         if (!nodeMap.has(id)) {
-          nodeMap.set(id, { label: entity.name, type: type, weight: 0, embeddings: [], entryIds: [] });
+          nodeMap.set(id, { label: cleanName, type: type, weight: 0, embeddings: [], entryIds: [] });
         }
         const node = nodeMap.get(id)!;
         node.weight++;

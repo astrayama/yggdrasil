@@ -82,7 +82,7 @@ Entry:
 
 Required fields:
 - "entities": [{ "type": "person"|"place"|"event"|"concept", "name": string }, ...]
-- "themes": string[] — up to 5 overarching topic phrases
+- "themes": string[] — up to 5 overarching topics. Crucial: Extract very broad, single-word or short universal concepts (e.g. "Family", "Anxiety", "Career", "Vulnerability", "Self-Worth") rather than highly specific phrases. This ensures commonality across entries.
 - "emotions": [{ "label": string, "polarity": number (0–10; 5=neutral; lower=more negative, higher=more positive), "intensity": number (0–10; 5=moderate) }, ...]
 - "keywords": string[] — significant single words or short phrases for search and tagging
 - "summary": string — 2–3 sentence neutral third-person summary of what the entry is about; no interpretation
