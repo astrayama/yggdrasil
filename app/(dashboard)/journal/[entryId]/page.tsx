@@ -12,26 +12,24 @@ import Link from 'next/link';
 import { InsightCard } from '@/components/insights/InsightCard';
 import { Composer } from '@/components/journal/Composer';
 import { toast } from 'sonner';
+import { logPaywallViewed } from '@/lib/analytics/client';
+import { UpgradeCallout } from '@/components/billing/UpgradeCallout';
 
 interface EntryPageProps {
   params: Promise<{ entryId: string }>;
 }
 
 function InsightUpgradePrompt() {
+  useEffect(() => {
+    logPaywallViewed();
+  }, []);
+
   return (
-    <div className="rounded-xl border border-gold/20 bg-surface-2/80 p-6 text-left shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-[0.25em] text-gold/80">Free Trial Complete</p>
-      <h3 className="mt-2 font-display text-2xl text-foreground">You&apos;ve used all 5 free insights.</h3>
-      <p className="mt-3 text-sm leading-6 text-foreground/70">
-        Your entry is still saved. Upgrade to keep every reflection alive with Yggdrasil&apos;s full analysis.
-      </p>
-      <Link
-        href="/pricing"
-        className="mt-5 inline-flex rounded-sm border border-gold/30 bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold/20"
-      >
-        Upgrade
-      </Link>
-    </div>
+    <UpgradeCallout
+      eyebrow="Free Trial Complete"
+      title="You&apos;ve used all 5 free insights."
+      description="Your entry is still saved. Upgrade to keep every reflection alive with Yggdrasil&apos;s full analysis."
+    />
   );
 }
 
@@ -233,13 +231,11 @@ export default function EntryPage({ params }: EntryPageProps) {
           </div>
         )}
 
-        {entry.analysisStatus === 'complete' && analysis && (
-          entry.insightGated ? (
-            <InsightUpgradePrompt />
-          ) : (
-            <InsightCard analysis={analysis} />
-          )
-        )}
+        {entry.analysisStatus === 'complete' && (entry.insightGated ? (
+          <InsightUpgradePrompt />
+        ) : analysis ? (
+          <InsightCard analysis={analysis} />
+        ) : null)}
       </div>
         </>
       )}

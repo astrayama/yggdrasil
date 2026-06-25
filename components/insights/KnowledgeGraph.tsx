@@ -6,10 +6,11 @@ import { useAuth } from '@/hooks/useAuth';
 import { useFirestore } from '@/hooks/useFirestore';
 import { JournalEntry } from '@/types/journal';
 import type { GraphNode, GraphEdge, GraphData } from '@/lib/knowledgeGraph';
-import { logKnowledgeGraphViewed } from '@/lib/analytics/client';
+import { logKnowledgeGraphViewed, logPaywallViewed } from '@/lib/analytics/client';
 import Link from 'next/link';
+import { UpgradeCallout } from '@/components/billing/UpgradeCallout';
 
-export function KnowledgeGraph() {
+export function KnowledgeGraph({ tier = 'full' }: { tier?: 'basic' | 'full' }) {
   const { user } = useAuth();
   const [data, setData] = useState<GraphData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +33,7 @@ export function KnowledgeGraph() {
       setLoading(true);
       try {
         const token = await user.getIdToken();
-        const res = await fetch('/api/knowledge-graph', {
+        const res = await fetch(`/api/knowledge-graph?tier=${tier}`, {
           headers: {
             'Authorization': `Bearer ${token}`
           }
@@ -52,7 +53,13 @@ export function KnowledgeGraph() {
     };
 
     fetchGraph();
-  }, [user]);
+  }, [tier, user]);
+
+  useEffect(() => {
+    if (tier === 'basic') {
+      logPaywallViewed();
+    }
+  }, [tier]);
 
   // Render D3 Simulation
   useEffect(() => {
@@ -199,6 +206,18 @@ export function KnowledgeGraph() {
         ) : (
           <svg className="w-full h-[500px] cursor-grab active:cursor-grabbing" />
         )}
+
+        {tier === 'basic' && data && data.nodes.length > 0 ? (
+          <div className="absolute inset-x-6 bottom-6">
+            <UpgradeCallout
+              eyebrow="Pro Feature"
+              title="Unlock your full knowledge graph"
+              description="You&apos;re seeing the basic graph right now. Upgrade to expand the map and explore the full shape of your patterns."
+              ctaLabel="See Pro plans"
+              compact
+            />
+          </div>
+        ) : null}
 
         {/* Legend */}
         {data && data.nodes.length > 0 && (

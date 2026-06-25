@@ -6,7 +6,6 @@ import { MoodCharts } from '@/components/insights/MoodCharts';
 import { EmotionalPatterns } from '@/components/insights/EmotionalPatterns';
 import { ClusterMap } from '@/components/insights/ClusterMap';
 import { KnowledgeGraph } from '@/components/insights/KnowledgeGraph';
-import { FeatureGate } from '@/components/billing/FeatureGate';
 import { useSubscription } from '@/hooks/useSubscription';
 
 export default function InsightsPage() {
@@ -35,15 +34,13 @@ export default function InsightsPage() {
         <EmotionalPatterns />
       </div>
 
-      <FeatureGate loading={subscription.loading} blocked={subscription.entitlement !== 'PRO'} requiredTier="PRO" overlay label="The full knowledge graph and hidden connections are available with Pro.">
-        <div className="mb-12">
-          <KnowledgeGraph />
-        </div>
+      <div className="mb-12">
+        <KnowledgeGraph tier={subscription.entitlement === 'PRO' ? 'full' : 'basic'} />
+      </div>
 
-        <div className="mb-12">
-          <ClusterMap />
-        </div>
-      </FeatureGate>
+      <div className="mb-12">
+        <ClusterMap />
+      </div>
 
     </div>
   );

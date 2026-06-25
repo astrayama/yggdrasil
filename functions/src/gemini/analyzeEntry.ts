@@ -135,12 +135,25 @@ Entry (depthScore: ${depthScore}):
       const batch = db.batch();
 
       const analysisRef = db.collection(`users/${userId}/entries/${entryId}/analysis`).doc();
-      batch.set(analysisRef, {
-        entryId,
-        depthScore,
-        ...analysisFields,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
+      const persistedAnalysis = shouldGateInsight
+        ? {
+            entryId,
+            depthScore,
+            entities: analysisFields.entities ?? [],
+            themes: analysisFields.themes ?? [],
+            emotions: analysisFields.emotions ?? [],
+            keywords: analysisFields.keywords ?? [],
+            summary: analysisFields.summary ?? '',
+            safety_concerns: analysisFields.safety_concerns ?? { flagged: false, concerns: [] },
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          }
+        : {
+            entryId,
+            depthScore,
+            ...analysisFields,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          };
+      batch.set(analysisRef, persistedAnalysis);
 
       const entryUpdateData: any = {
         analysisStatus: 'complete',
