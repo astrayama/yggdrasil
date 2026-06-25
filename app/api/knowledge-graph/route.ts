@@ -36,7 +36,11 @@ export async function GET(request: Request) {
       } as (JournalEntry & { analysis?: EntryAnalysis });
     }));
 
-    const graphData = buildKnowledgeGraph(entries, tier);
+    // Fetch pre-computed backend clusters
+    const clustersSnap = await adminDb.collection('users').doc(userId).collection('graphMetadata').doc('clusters').get();
+    const backendClusters = clustersSnap.exists ? clustersSnap.data()?.clusters || [] : [];
+
+    const graphData = buildKnowledgeGraph(entries, tier, backendClusters);
 
     return NextResponse.json(graphData);
   } catch (error) {

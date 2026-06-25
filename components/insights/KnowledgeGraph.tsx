@@ -266,32 +266,52 @@ export function KnowledgeGraph() {
       .attr('class', 'cluster-label pointer-events-none');
     
     clusterLabel.append('rect')
-      .attr('fill', 'var(--surface-2)')
+      .attr('fill', 'var(--color-surface-2)')
       .attr('fill-opacity', 0.9)
-      .attr('stroke', 'var(--border)')
+      .attr('stroke', 'var(--color-border)')
       .attr('stroke-width', 1)
-      .attr('rx', 10)
-      .attr('ry', 10);
+      .attr('rx', 8)
+      .attr('ry', 8);
       
+    // Line 1
     clusterLabel.append('text')
-      .text(d => `Recurring: ${d.entryCount} entries, ${d.timeSpanStr}`)
+      .text("This isn't the first time.")
+      .attr('font-size', '11px')
+      .attr('text-anchor', 'middle')
+      .attr('y', -6)
+      .attr('fill', 'var(--color-muted-foreground)')
+      .attr('class', 'font-medium');
+
+    // Line 2
+    clusterLabel.append('text')
+      .text(d => `${d.entryCount} entries · ${d.timeSpanStr}`)
       .attr('font-size', '10px')
       .attr('text-anchor', 'middle')
-      .attr('dominant-baseline', 'middle')
-      .attr('fill', 'var(--muted-foreground)')
-      .attr('class', 'font-medium')
-      .each(function() {
-        const bbox = (this as SVGTextElement).getBBox();
-        const paddingX = 8;
-        const paddingY = 4;
-        const rect = (this.parentNode as SVGGElement).querySelector('rect');
-        if (rect) {
-          rect.setAttribute('width', String(bbox.width + paddingX * 2));
-          rect.setAttribute('height', String(bbox.height + paddingY * 2));
-          rect.setAttribute('x', String(bbox.x - paddingX));
-          rect.setAttribute('y', String(bbox.y - paddingY));
-        }
-      });
+      .attr('y', 8)
+      .attr('fill', 'var(--color-muted-foreground)')
+      .attr('class', 'font-normal');
+
+    clusterLabel.each(function() {
+      // Find both text elements and the rect
+      const texts = (this as SVGGElement).querySelectorAll('text');
+      const rect = (this as SVGGElement).querySelector('rect');
+      if (texts.length === 2 && rect) {
+        // Get bounding box of the entire group of text elements
+        const bbox1 = texts[0].getBBox();
+        const bbox2 = texts[1].getBBox();
+        
+        const width = Math.max(bbox1.width, bbox2.width);
+        const height = bbox1.height + bbox2.height + 4; // Add a little gap
+        
+        const paddingX = 12;
+        const paddingY = 8;
+        
+        rect.setAttribute('width', String(width + paddingX * 2));
+        rect.setAttribute('height', String(height + paddingY * 2));
+        rect.setAttribute('x', String(-width / 2 - paddingX));
+        rect.setAttribute('y', String(bbox1.y - paddingY));
+      }
+    });
 
     simulation.on('tick', () => {
       link

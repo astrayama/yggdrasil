@@ -3,6 +3,8 @@ import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { logInsightGenerated } from '../lib/analytics';
 import { generateText, generateEmbedding, geminiapikey } from '../lib/gemini';
+import { computeAndSaveEdges } from './computeConnections';
+import { computeAndSaveClusters } from './computeClusters';
 
 
 
@@ -158,6 +160,15 @@ Entry (depthScore: ${depthScore}):
         depthScore
       });
       logger.info(`[analyzeEntry] Logged to opsLogs collection.`);
+
+      // Compute and persist similarity edges for the Knowledge Graph
+      if (embeddingValues) {
+        logger.info(`[analyzeEntry] Computing similarity edges...`);
+        await computeAndSaveEdges(userId, entryId, embeddingValues);
+        
+        logger.info(`[analyzeEntry] Recomputing clusters...`);
+        await computeAndSaveClusters(userId);
+      }
 
     } catch (error) {
       logger.error('analyzeEntry failed', { userId, entryId, error });

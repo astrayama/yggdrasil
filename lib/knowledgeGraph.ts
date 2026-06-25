@@ -72,16 +72,28 @@ function cosineSimilarity(a: number[], b: number[]): number {
  * 
  * @param entries The user's entries, including analysis and embedding.
  * @param tier 'basic' (free) or 'full' (pro). Basic limits node count.
+ * @param backendClusters Optional pre-computed entry clusters from the server.
  */
-export function buildKnowledgeGraph(entries: (JournalEntry & { analysis?: EntryAnalysis })[], tier: 'basic' | 'full' = 'full'): GraphData {
+export function buildKnowledgeGraph(
+  entries: (JournalEntry & { analysis?: EntryAnalysis })[], 
+  tier: 'basic' | 'full' = 'full',
+  backendClusters: any[] = []
+): GraphData {
   const nodeMap = new Map<string, { label: string, type: string, weight: number, embeddings: number[][], entryIds: string[] }>();
   
   // 1. Extract nodes and accumulate embeddings
   entries.forEach(entry => {
     if (!entry.analysis) return;
     
-    // Ensure embedding exists and is an array of numbers
-    const entryEmbedding = Array.isArray(entry.embedding) ? entry.embedding : null;
+    // Ensure embedding exists and is parsed correctly (could be a Firestore VectorValue or array of numbers)
+    let entryEmbedding: number[] | null = null;
+    if (entry.embedding) {
+      if (Array.isArray(entry.embedding)) {
+        entryEmbedding = entry.embedding;
+      } else if (typeof (entry.embedding as any).toArray === 'function') {
+        entryEmbedding = (entry.embedding as any).toArray();
+      }
+    }
     
     // Process themes
     if (Array.isArray(entry.analysis.themes)) {
@@ -227,91 +239,28 @@ export function buildKnowledgeGraph(entries: (JournalEntry & { analysis?: EntryA
     }
   }
 
-  edges.push(...weakEdges);
-  
-  // 6. Recurrence Detection: Find macro-clusters
-  const MIN_CLUSTER_SIZE = 3;
-  const adjList = new Map<string, string[]>();
-  validNodes.forEach(n => adjList.set(n.id, []));
-  
-  // Only use strong semantic edges for clustering
-  edges.filter(e => !e.weak).forEach(e => {
-    adjList.get(e.source)!.push(e.target);
-    adjList.get(e.target)!.push(e.source);
-  });
-
-  const visited = new Set<string>();
-  const components: string[][] = [];
-
-  for (const node of validNodes) {
-    if (!visited.has(node.id)) {
-      const comp: string[] = [];
-      const queue = [node.id];
-      visited.add(node.id);
-      
-      while (queue.length > 0) {
-        const curr = queue.shift()!;
-        comp.push(curr);
-        for (const neighbor of adjList.get(curr)!) {
-          if (!visited.has(neighbor)) {
-            visited.add(neighbor);
-            queue.push(neighbor);
-          }
-        }
-      }
-      components.push(comp);
-    }
-  }
-
-  // Determine span and entry count
+  // 6. Recurrence Detection: Map backend entry clusters to frontend node clusters
   const clusters: GraphCluster[] = [];
-  // Build lookup from entry ID to entry
-  const entryMap = new Map<string, JournalEntry>();
-  entries.forEach(e => entryMap.set(e.id, e as JournalEntry));
 
-  components.forEach((nodeIds, index) => {
-    const uniqueEntryIds = new Set<string>();
-    nodeIds.forEach(nid => {
-      const node = validNodes.find(n => n.id === nid);
-      node?.entryIds.forEach(eid => uniqueEntryIds.add(eid));
+  backendClusters.forEach(bc => {
+    // A backend cluster has an array of entryIds
+    const clusterEntryIds = bc.entryIds || [];
+    if (clusterEntryIds.length === 0) return;
+
+    // Find all frontend nodes that are present in any of the cluster's entries
+    const matchedNodeIds: string[] = [];
+    validNodes.forEach(n => {
+      if (n.entryIds.some(eid => clusterEntryIds.includes(eid))) {
+        matchedNodeIds.push(n.id);
+      }
     });
 
-    if (uniqueEntryIds.size >= MIN_CLUSTER_SIZE) {
-      // It's a recurring theme
-      let minTime = Infinity;
-      let maxTime = -Infinity;
-      uniqueEntryIds.forEach(eid => {
-        const entry = entryMap.get(eid);
-        if (entry && entry.createdAt) {
-          const t = new Date(entry.createdAt).getTime();
-          if (t < minTime) minTime = t;
-          if (t > maxTime) maxTime = t;
-        }
-      });
-
-      let timeSpanStr = '';
-      if (minTime !== Infinity && maxTime !== -Infinity && minTime !== maxTime) {
-        const diffMs = maxTime - minTime;
-        const diffDays = diffMs / (1000 * 60 * 60 * 24);
-        if (diffDays >= 30) {
-          const months = Math.round(diffDays / 30);
-          timeSpanStr = `${months} month${months > 1 ? 's' : ''}`;
-        } else if (diffDays >= 7) {
-          const weeks = Math.round(diffDays / 7);
-          timeSpanStr = `${weeks} week${weeks > 1 ? 's' : ''}`;
-        } else {
-          const days = Math.max(1, Math.round(diffDays));
-          timeSpanStr = `${days} day${days > 1 ? 's' : ''}`;
-        }
-      } else {
-        timeSpanStr = '1 day';
-      }
-
+    if (matchedNodeIds.length > 0) {
       clusters.push({
-        id: `cluster_${index}`,
-        nodeIds,
-        entryCount: uniqueEntryIds.size,
-        timeSpanStr
+        id: bc.id,
+        nodeIds: matchedNodeIds,
+        entryCount: bc.entryCount,
+        timeSpanStr: bc.timeSpanStr
       });
     }
   });
@@ -319,5 +268,5 @@ export function buildKnowledgeGraph(entries: (JournalEntry & { analysis?: EntryA
   // 7. Clean up graph (remove orphaned nodes if strict filtering is desired, 
   // but keeping them might be fine for visualization as floating points)
   
-  return { nodes, edges, clusters };
+  return { nodes, edges: [...edges, ...weakEdges], clusters };
 }
