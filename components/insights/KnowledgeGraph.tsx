@@ -9,21 +9,15 @@ import type { GraphNode, GraphEdge, GraphData } from '@/lib/knowledgeGraph';
 import { logKnowledgeGraphViewed } from '@/lib/analytics/client';
 import Link from 'next/link';
 
-// Force Simulation Tuning Constants
+// Force Simulation Tuning Constants — Obsidian-like airy layout
 const FORCE = {
-  // Edge distance bounds (shorter for stronger similarity)
-  linkDistanceMin: 30,
-  linkDistanceMax: 150,
-  // Edge strength multiplier (stronger pull for higher similarity)
-  linkStrengthMultiplier: 1.0,
-  // Repulsion strength (less negative = less blow-apart)
-  chargeStrength: -60,
-  // Repulsion max distance (prevents distant nodes from pushing each other)
-  chargeDistanceMax: 200,
-  // Padding added to node radius to prevent overlap
-  collidePadding: 4,
-  // Gentle pull toward center to keep clusters in frame
-  centerGravity: 0.03
+  linkDistanceMin: 60,
+  linkDistanceMax: 220,
+  linkStrengthMultiplier: 0.6,
+  chargeStrength: -120,
+  chargeDistanceMax: 350,
+  collidePadding: 8,
+  centerGravity: 0.04
 };
 
 export function KnowledgeGraph() {
@@ -93,7 +87,7 @@ export function KnowledgeGraph() {
     if (data.nodes.length === 0) return;
 
     const width = containerRef.current.clientWidth;
-    const height = 500;
+    const height = 600;
     const svg = d3.select(containerRef.current).select<SVGSVGElement>('svg');
     svg.selectAll('*').remove();
 
@@ -171,21 +165,20 @@ export function KnowledgeGraph() {
       .force('x', d3.forceX(width / 2).strength(FORCE.centerGravity))
       .force('y', d3.forceY(height / 2).strength(FORCE.centerGravity))
       .force('collide', d3.forceCollide().radius((d: any) => {
-        const nodeRadius = Math.max(8, Math.min(25, (d.weight || 0) * 3 + 5));
+        const nodeRadius = Math.max(5, Math.min(18, (d.weight || 0) * 2.5 + 4));
         return nodeRadius + FORCE.collidePadding;
       }));
 
-    // Draw links
+    // Draw links — thin, subtle lines like Obsidian
     const link = g.append('g')
       .selectAll('line')
       .data(links)
       .join('line')
       .attr('class', (d: any) => isNewEdge(d) ? 'node-link animate-in fade-in duration-1000' : 'node-link')
       .style('animation-fill-mode', 'both')
-      .attr('stroke', '#7BAE8A')
-      .attr('stroke-dasharray', (d: any) => d.weak ? '4,6' : 'none')
-      .attr('stroke-opacity', (d: any) => d.weak ? 0.25 : Math.max(0.3, Math.min(0.7, d.weight)))
-      .attr('stroke-width', (d: any) => d.weak ? 1 : Math.max(1.5, d.weight * 3));
+      .attr('stroke', (d: any) => d.weak ? 'rgba(123, 174, 138, 0.15)' : 'rgba(123, 174, 138, 0.35)')
+      .attr('stroke-dasharray', (d: any) => d.weak ? '3,5' : 'none')
+      .attr('stroke-width', (d: any) => d.weak ? 0.5 : 1);
 
     // Color scale by type
     const colorScale = d3.scaleOrdinal()
@@ -197,10 +190,10 @@ export function KnowledgeGraph() {
       .selectAll<SVGCircleElement, unknown>('circle')
       .data(nodes)
       .join('circle')
-      .attr('r', d => Math.max(8, Math.min(25, d.weight * 3 + 5)))
+      .attr('r', d => Math.max(5, Math.min(18, d.weight * 2.5 + 4)))
       .attr('fill', d => colorScale(d.type) as string)
-      .attr('stroke', '#fff')
-      .attr('stroke-width', 2)
+      .attr('stroke', 'rgba(255,255,255,0.6)')
+      .attr('stroke-width', 1.5)
       .attr('class', (d: any) => {
         const baseClass = 'cursor-pointer transition-all hover:stroke-foreground/50 focus:outline-none focus:stroke-primary';
         return isNewNode(d) ? `${baseClass} animate-in zoom-in fade-in duration-1000` : baseClass;
@@ -254,15 +247,15 @@ export function KnowledgeGraph() {
       .data(nodes)
       .join('text')
       .text(d => d.label)
-      .attr('font-size', '10px')
-      .attr('dx', 12)
-      .attr('dy', 4)
+      .attr('font-size', '9px')
+      .attr('dx', (d: any) => Math.max(5, Math.min(18, d.weight * 2.5 + 4)) + 4)
+      .attr('dy', 3)
       .attr('class', (d: any) => {
-        const baseClass = 'node-label fill-foreground/80 pointer-events-none font-medium';
+        const baseClass = 'node-label fill-foreground/70 pointer-events-none';
         return isNewNode(d) ? `${baseClass} animate-in fade-in duration-1000` : baseClass;
       })
       .style('animation-fill-mode', 'both')
-      .style('opacity', 0.8); // Default opacity at k=1
+      .style('opacity', 0.7);
 
     // Draw cluster labels
     const clusters = data.clusters || [];
@@ -362,12 +355,12 @@ export function KnowledgeGraph() {
   }, [data]);
 
   if (loading) {
-    return <div className="animate-pulse h-[500px] bg-secondary/30 rounded-xl" />;
+    return <div className="animate-pulse h-[600px] bg-secondary/30 rounded-xl" />;
   }
 
   if (error) {
     return (
-      <div className="h-[500px] flex items-center justify-center bg-surface-2 rounded-xl border border-border/50 text-red-400">
+      <div className="h-[600px] flex items-center justify-center bg-surface-2 rounded-xl border border-border/50 text-red-400">
         {error}
       </div>
     );
@@ -390,12 +383,12 @@ export function KnowledgeGraph() {
 
       <div className="bg-card border border-border/50 rounded-xl p-4 shadow-sm overflow-hidden relative" ref={containerRef}>
         {!data || data.nodes.length === 0 ? (
-          <div className="w-full h-[500px] flex flex-col items-center justify-center text-muted-foreground">
+          <div className="w-full h-[600px] flex flex-col items-center justify-center text-muted-foreground">
             <span className="text-2xl mb-2">🌱</span>
             <p>Your mind map is growing. Write more entries to see the connections form.</p>
           </div>
         ) : (
-          <svg className="w-full h-[500px] cursor-grab active:cursor-grabbing" />
+          <svg className="w-full h-[600px] cursor-grab active:cursor-grabbing" />
         )}
 
         {/* Legend */}

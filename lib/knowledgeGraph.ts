@@ -166,35 +166,42 @@ export function buildKnowledgeGraph(
   });
   
   // 4. Compute Edges based on cosine similarity
-  // Strategy: compute all pairwise similarities, then for each node keep only its
-  // top-K strongest connections. This prevents a near-complete graph from forming
-  // when all entries come from the same user (high baseline similarity), which
-  // would cause the D3 force simulation to diverge into NaN.
+  // Strategy: guarantee every node gets connected to its K nearest neighbors,
+  // then add bonus edges for pairs above a dynamic threshold. The threshold
+  // adapts to the corpus — a small homogeneous journal might have a baseline
+  // of 0.95 while a large diverse one might sit at 0.75.
   const nodes: GraphNode[] = nodesWithEmbeddings.map(n => ({ id: n.id, label: n.label, type: n.type, weight: n.weight, entryIds: n.entryIds }));
   
-  // Only compute edges for nodes that successfully formed a vector
   const validNodes = nodesWithEmbeddings.filter(n => n.vector !== null);
   
-  const SIMILARITY_THRESHOLD = 0.92; // High threshold — only genuinely close concepts
-  const MAX_EDGES_PER_NODE = 4;      // Cap connections to keep graph sparse
+  const MIN_NEIGHBORS = 2;  // Every node gets at least this many edges
+  const MAX_EDGES_PER_NODE = 5; // Cap to keep graph readable
   
   const simMatrix = new Map<string, number>();
   const getSimKey = (id1: string, id2: string) => [id1, id2].sort().join('|');
 
   // Compute full pairwise similarity matrix
+  const allSims: number[] = [];
   for (let i = 0; i < validNodes.length; i++) {
     for (let j = i + 1; j < validNodes.length; j++) {
       const sim = cosineSimilarity(validNodes[i].vector!, validNodes[j].vector!);
       simMatrix.set(getSimKey(validNodes[i].id, validNodes[j].id), sim);
+      allSims.push(sim);
     }
   }
 
-  // For each node, collect its top-K neighbors above threshold
+  // Dynamic threshold: use 75th percentile of all pairwise similarities
+  // This ensures we always pick the strongest ~25% of possible connections
+  allSims.sort((a, b) => a - b);
+  const p75 = allSims.length > 0 ? allSims[Math.floor(allSims.length * 0.75)] : 0.85;
+  const STRONG_THRESHOLD = Math.max(0.80, Math.min(0.96, p75));
+
   const isConnected = new Set<string>();
   const edges: GraphEdge[] = [];
   const edgeCount = new Map<string, number>();
   validNodes.forEach(n => edgeCount.set(n.id, 0));
 
+  // Phase 1: Connect every node to its MIN_NEIGHBORS nearest neighbors
   for (const node of validNodes) {
     const neighbors = validNodes
       .filter(n => n.id !== node.id)
@@ -202,9 +209,39 @@ export function buildKnowledgeGraph(
         targetId: n.id,
         sim: simMatrix.get(getSimKey(node.id, n.id)) || 0
       }))
-      .filter(n => n.sim >= SIMILARITY_THRESHOLD)
       .sort((a, b) => b.sim - a.sim)
-      .slice(0, MAX_EDGES_PER_NODE);
+      .slice(0, MIN_NEIGHBORS);
+
+    for (const neighbor of neighbors) {
+      const simKey = getSimKey(node.id, neighbor.targetId);
+      if (!isConnected.has(simKey)) {
+        edges.push({
+          source: node.id,
+          target: neighbor.targetId,
+          weight: neighbor.sim,
+          weak: neighbor.sim < STRONG_THRESHOLD
+        });
+        isConnected.add(simKey);
+        edgeCount.set(node.id, (edgeCount.get(node.id) || 0) + 1);
+        edgeCount.set(neighbor.targetId, (edgeCount.get(neighbor.targetId) || 0) + 1);
+      }
+    }
+  }
+
+  // Phase 2: Add strong edges above threshold (up to MAX_EDGES_PER_NODE)
+  for (const node of validNodes) {
+    const currentCount = edgeCount.get(node.id) || 0;
+    if (currentCount >= MAX_EDGES_PER_NODE) continue;
+
+    const neighbors = validNodes
+      .filter(n => n.id !== node.id)
+      .map(n => ({
+        targetId: n.id,
+        sim: simMatrix.get(getSimKey(node.id, n.id)) || 0
+      }))
+      .filter(n => n.sim >= STRONG_THRESHOLD && !isConnected.has(getSimKey(node.id, n.targetId)))
+      .sort((a, b) => b.sim - a.sim)
+      .slice(0, MAX_EDGES_PER_NODE - currentCount);
 
     for (const neighbor of neighbors) {
       const simKey = getSimKey(node.id, neighbor.targetId);
@@ -217,44 +254,6 @@ export function buildKnowledgeGraph(
         isConnected.add(simKey);
         edgeCount.set(node.id, (edgeCount.get(node.id) || 0) + 1);
         edgeCount.set(neighbor.targetId, (edgeCount.get(neighbor.targetId) || 0) + 1);
-      }
-    }
-  }
-  
-  // 5. Enforce minimum connections (prevent islands)
-  // Nodes with fewer than MIN_EDGES get weak fallback edges to their nearest neighbors
-  const MIN_EDGES = 1;
-  const weakEdges: GraphEdge[] = [];
-
-  for (const node of validNodes) {
-    const needed = MIN_EDGES - (edgeCount.get(node.id) || 0);
-    if (needed > 0) {
-      const similarities = validNodes
-        .filter(n => n.id !== node.id)
-        .map(n => ({
-          targetId: n.id,
-          sim: simMatrix.get(getSimKey(node.id, n.id)) || 0
-        }))
-        .filter(target => !isConnected.has(getSimKey(node.id, target.targetId)))
-        .sort((a, b) => b.sim - a.sim);
-      
-      let added = 0;
-      for (const neighbor of similarities) {
-        if (added >= needed) break;
-        
-        const simKey = getSimKey(node.id, neighbor.targetId);
-        if (!isConnected.has(simKey)) {
-          weakEdges.push({
-            source: node.id,
-            target: neighbor.targetId,
-            weight: neighbor.sim,
-            weak: true
-          });
-          isConnected.add(simKey);
-          edgeCount.set(node.id, (edgeCount.get(node.id) || 0) + 1);
-          edgeCount.set(neighbor.targetId, (edgeCount.get(neighbor.targetId) || 0) + 1);
-          added++;
-        }
       }
     }
   }
@@ -288,5 +287,5 @@ export function buildKnowledgeGraph(
   // 7. Clean up graph (remove orphaned nodes if strict filtering is desired, 
   // but keeping them might be fine for visualization as floating points)
   
-  return { nodes, edges: [...edges, ...weakEdges], clusters };
+  return { nodes, edges, clusters };
 }
