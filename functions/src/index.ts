@@ -12,3 +12,4 @@ export { backfillEmbeddings } from './admin/backfillEmbeddings';
 export { onUserCreate } from './auth/onUserCreate';
 export { createCheckout } from './stripe/createCheckout';
 export { createBillingPortalSession } from './stripe/createBillingPortalSession';
+export { stripeWebhook } from './stripe/stripeWebhook';

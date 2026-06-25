@@ -152,3 +152,29 @@ export async function logWeeklyWisdomGenerated(
     },
   });
 }
+
+export async function logSubscriptionStarted(
+  userId: string,
+  plan: string,
+): Promise<void> {
+  await sendAnalyticsEvent('subscription_started', {
+    userId,
+    eventParams: { plan },
+  });
+}
+
+export async function logSubscriptionCancelled(userId: string): Promise<void> {
+  await sendAnalyticsEvent('subscription_cancelled', {
+    userId,
+  });
+}
+
+export async function logSubscriptionRenewed(
+  userId: string,
+  plan: string,
+): Promise<void> {
+  await sendAnalyticsEvent('subscription_renewed', {
+    userId,
+    eventParams: { plan },
+  });
+}
