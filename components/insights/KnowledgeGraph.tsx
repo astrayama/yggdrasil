@@ -147,7 +147,15 @@ export function KnowledgeGraph() {
     const nodes = data.nodes.map(d => ({ ...d })) as (GraphNode & d3.SimulationNodeDatum)[];
     const links = data.edges.map(d => ({ ...d })) as (GraphEdge & d3.SimulationLinkDatum<GraphNode & d3.SimulationNodeDatum>)[];
 
+    // Initialize node positions to prevent NaN from undefined starting coords
+    nodes.forEach((n: any) => {
+      if (n.x == null || isNaN(n.x)) n.x = width / 2 + (Math.random() - 0.5) * 100;
+      if (n.y == null || isNaN(n.y)) n.y = height / 2 + (Math.random() - 0.5) * 100;
+    });
+
     const simulation = d3.forceSimulation(nodes)
+      .alphaDecay(0.03)
+      .velocityDecay(0.4)
       .force('link', d3.forceLink(links)
         .id((d: any) => d.id)
         .distance((d: any) => {
@@ -163,7 +171,6 @@ export function KnowledgeGraph() {
       .force('x', d3.forceX(width / 2).strength(FORCE.centerGravity))
       .force('y', d3.forceY(height / 2).strength(FORCE.centerGravity))
       .force('collide', d3.forceCollide().radius((d: any) => {
-        // Matches the drawn circle radius plus padding
         const nodeRadius = Math.max(8, Math.min(25, (d.weight || 0) * 3 + 5));
         return nodeRadius + FORCE.collidePadding;
       }));
@@ -175,10 +182,10 @@ export function KnowledgeGraph() {
       .join('line')
       .attr('class', (d: any) => isNewEdge(d) ? 'node-link animate-in fade-in duration-1000' : 'node-link')
       .style('animation-fill-mode', 'both')
-      .attr('stroke', 'var(--muted-foreground)')
-      .attr('stroke-dasharray', (d: any) => d.weak ? '2,4' : 'none')
-      .attr('stroke-opacity', (d: any) => d.weak ? 0.15 : Math.max(0.25, d.weight))
-      .attr('stroke-width', (d: any) => d.weak ? 0.5 : Math.max(1, d.weight * 3));
+      .attr('stroke', '#7BAE8A')
+      .attr('stroke-dasharray', (d: any) => d.weak ? '4,6' : 'none')
+      .attr('stroke-opacity', (d: any) => d.weak ? 0.25 : Math.max(0.3, Math.min(0.7, d.weight)))
+      .attr('stroke-width', (d: any) => d.weak ? 1 : Math.max(1.5, d.weight * 3));
 
     // Color scale by type
     const colorScale = d3.scaleOrdinal()
@@ -314,8 +321,13 @@ export function KnowledgeGraph() {
     });
 
     simulation.on('tick', () => {
-      link
+      // Guard against NaN — if the simulation diverges, clamp to center
+      nodes.forEach((n: any) => {
+        if (isNaN(n.x)) n.x = width / 2;
+        if (isNaN(n.y)) n.y = height / 2;
+      });
 
+      link
         .attr('x1', (d: any) => d.source.x)
         .attr('y1', (d: any) => d.source.y)
         .attr('x2', (d: any) => d.target.x)
