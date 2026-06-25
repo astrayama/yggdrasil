@@ -8,12 +8,31 @@ import { limit, updateDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import { deleteEntry } from '@/lib/entries';
 import type { JournalEntry, EntryAnalysis } from '@/types/journal';
+import Link from 'next/link';
 import { InsightCard } from '@/components/insights/InsightCard';
 import { Composer } from '@/components/journal/Composer';
 import { toast } from 'sonner';
 
 interface EntryPageProps {
   params: Promise<{ entryId: string }>;
+}
+
+function InsightUpgradePrompt() {
+  return (
+    <div className="rounded-xl border border-gold/20 bg-surface-2/80 p-6 text-left shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.25em] text-gold/80">Free Trial Complete</p>
+      <h3 className="mt-2 font-display text-2xl text-foreground">You&apos;ve used all 5 free insights.</h3>
+      <p className="mt-3 text-sm leading-6 text-foreground/70">
+        Your entry is still saved. Upgrade to keep every reflection alive with Yggdrasil&apos;s full analysis.
+      </p>
+      <Link
+        href="/pricing"
+        className="mt-5 inline-flex rounded-sm border border-gold/30 bg-gold/10 px-4 py-2 text-sm font-medium text-gold transition-colors hover:bg-gold/20"
+      >
+        Upgrade
+      </Link>
+    </div>
+  );
 }
 
 export default function EntryPage({ params }: EntryPageProps) {
@@ -215,7 +234,11 @@ export default function EntryPage({ params }: EntryPageProps) {
         )}
 
         {entry.analysisStatus === 'complete' && analysis && (
-          <InsightCard analysis={analysis} />
+          entry.insightGated ? (
+            <InsightUpgradePrompt />
+          ) : (
+            <InsightCard analysis={analysis} />
+          )
         )}
       </div>
         </>

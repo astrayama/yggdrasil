@@ -3,6 +3,7 @@ import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { logInsightGenerated } from '../lib/analytics';
 import { generateText, generateEmbedding, geminiapikey } from '../lib/gemini';
+import { FREE_INSIGHT_LIMIT, type BillingPeriod, type SubscriptionStatus } from '../stripe/shared';
 
 
 
@@ -116,6 +117,19 @@ Entry (depthScore: ${depthScore}):
       const match = analysisResponse.match(/\{[\s\S]*\}/);
       const analysisText = match ? match[0] : analysisResponse;
       const analysisFields = JSON.parse(analysisText);
+      const subscriptionSnap = await db.doc(`subscriptions/${userId}`).get();
+      const subscriptionData = subscriptionSnap.data() as {
+        status?: SubscriptionStatus;
+        billingPeriod?: BillingPeriod | null;
+      } | undefined;
+      const status = subscriptionData?.status ?? 'none';
+      const billingPeriod = subscriptionData?.billingPeriod ?? null;
+      const paid = status === 'active' && billingPeriod !== null;
+      const completedEntriesSnap = await db.collection(`users/${userId}/entries`)
+        .where('analysisStatus', '==', 'complete')
+        .count()
+        .get();
+      const shouldGateInsight = !paid && completedEntriesSnap.data().count >= FREE_INSIGHT_LIMIT;
 
       logger.info(`[analyzeEntry] Saving analysis to Firestore...`);
       const batch = db.batch();
@@ -130,6 +144,7 @@ Entry (depthScore: ${depthScore}):
 
       const entryUpdateData: any = {
         analysisStatus: 'complete',
+        insightGated: shouldGateInsight,
       };
       
       if (embeddingValues) {
