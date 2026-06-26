@@ -25,6 +25,14 @@
   --color-input: transparent;
   --color-ring: #7BAE8A;
 
+  /* Landing page Figma palette */
+  --color-home-mist: #D7E5D4;
+  --color-home-sage: #8DA48A;
+  --color-home-olive: #72896D;
+  --color-home-forest: #344C3E;
+  --color-home-stone: #BCCFBB;
+  --color-home-outline: #A99D84;
+
   /* Typography Fonts */
   --font-sans: var(--font-sans), sans-serif;
   --font-display: var(--font-display), serif;
@@ -47,6 +55,10 @@
 
   /* Border Radius */
   --radius-custom: 0.25rem; /* 4px */
+  --radius-home-pill: 2.5rem;
+  --radius-home-card: 1.5625rem;
+  --radius-home-card-deep: 3.125rem;
+  --radius-home-footer: 6.25rem;
 }
 
 @layer base {
@@ -74,7 +86,7 @@
     --border: #2A4035;
     --input: transparent;
     --ring: #7BAE8A;
-    
+
     --font-weight-medium: 500;
     --font-weight-normal: 400;
     --radius: 0.25rem;
@@ -113,4 +125,14 @@
   ::-webkit-scrollbar-thumb:hover {
     background: var(--border);
   }
+}
+
+@layer components {
+  .home-moving-wave {
+    display: block;
+    height: 15px;
+    width: 100%;
+    overflow: visible;
+  }
+
 }

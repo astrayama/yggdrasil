@@ -31,6 +31,21 @@ These colors are defined in `app/globals.css` and are available as Tailwind util
 | **Earth** | `text-earth` | `#8B6B4A` | Tertiary accent; warm wood brown for roots/goals theming |
 | **Destructive** | `bg-destructive`| `#8B3A3A` | Errors and high-alert actions only |
 
+### Landing Page Extension
+
+The public landing page uses the approved Figma palette supplied for the homepage. These tokens live beside the core palette in `app/globals.css` and should be used only for the landing surface unless the broader product design system is intentionally updated.
+
+| Token Name | Class Variable | Hex Value | Purpose |
+| :--- | :--- | :--- | :--- |
+| **Home Mist** | `bg-home-mist`, `text-home-mist` | `#D7E5D4` | Light landing background and inverted text |
+| **Home Sage** | `bg-home-sage`, `text-home-sage` | `#8DA48A` | Secondary landing buttons and animated accents |
+| **Home Olive** | `bg-home-olive`, `text-home-olive` | `#72896D` | Intermediate landing panels and supporting text |
+| **Home Forest** | `bg-home-forest`, `text-home-forest` | `#344C3E` | Landing primary text, logo, and dark panels |
+| **Home Stone** | `bg-home-stone`, `text-home-stone` | `#BCCFBB` | Landing cards and soft animated accents |
+| **Home Outline** | `outline-home-outline` | `#A99D84` | Warm subtle outlines on landing cards |
+
+Landing-specific radii are also defined as Tailwind tokens: `rounded-home-pill`, `rounded-home-card`, `rounded-home-card-deep`, and `rounded-home-footer`.
+
 ---
 
 ## 3. Typography Scale
