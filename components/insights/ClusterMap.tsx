@@ -162,7 +162,6 @@ export function ClusterMap() {
     const nodes: ClusterNode[] = [];
     clusterData.forEach((cluster) => {
       cluster.items.forEach(entry => {
-        const score = entry.analysis?.sentiment?.score || 0;
         nodes.push({
           id: entry.id,
           clusterIndex: cluster.index,

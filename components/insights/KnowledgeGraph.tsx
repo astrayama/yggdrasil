@@ -224,14 +224,14 @@ export function KnowledgeGraph() {
         if (originalNode) {
           setSelectedNode(originalNode);
           const t = currentTransform.current;
-          setHoveredNode({ node: originalNode, x: d.x * t.k + t.x, y: d.y * t.k + t.y });
+          setHoveredNode({ node: originalNode, x: (d.x || 0) * t.k + t.x, y: (d.y || 0) * t.k + t.y });
         }
       })
       .on('mouseenter', (event, d) => {
         const originalNode = data.nodes.find(n => n.id === d.id);
         if (originalNode) {
           const t = currentTransform.current;
-          setHoveredNode({ node: originalNode, x: d.x * t.k + t.x, y: d.y * t.k + t.y });
+          setHoveredNode({ node: originalNode, x: (d.x || 0) * t.k + t.x, y: (d.y || 0) * t.k + t.y });
         }
         
         // Highlight connected nodes and edges
@@ -494,7 +494,7 @@ export function KnowledgeGraph() {
   );
 }
 
-function NodePopover({ node, x, y, entries, containerRef }: { node: GraphNode, x: number, y: number, entries: JournalEntry[], containerRef: React.RefObject<HTMLDivElement> }) {
+function NodePopover({ node, x, y, entries, containerRef }: { node: GraphNode, x: number, y: number, entries: JournalEntry[], containerRef: React.RefObject<HTMLDivElement | null> }) {
   const relatedEntries = entries
     .filter(e => node.entryIds.includes(e.id))
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
@@ -573,7 +573,7 @@ function getRelevantSnippet(htmlContent: string, keyword: string): React.ReactNo
   const match = plainText.match(regex);
   const index = match?.index;
 
-  if (index === undefined) {
+  if (!match || index === undefined) {
     // If the exact word isn't found, fallback to just showing the beginning of the entry.
     return plainText.length > 120 ? plainText.slice(0, 120) + '...' : plainText;
   }
