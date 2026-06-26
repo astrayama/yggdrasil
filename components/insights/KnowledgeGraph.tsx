@@ -262,7 +262,7 @@ export function KnowledgeGraph() {
         const originalNode = data.nodes.find(n => n.id === d.id);
         if (originalNode) {
           const t = currentTransform.current;
-          setHoveredNode({ node: originalNode, x: d.x * t.k + t.x, y: d.y * t.k + t.y });
+          setHoveredNode({ node: originalNode, x: (d.x || 0) * t.k + t.x, y: (d.y || 0) * t.k + t.y });
         }
       })
       .on('mouseleave', () => {
