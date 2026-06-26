@@ -178,12 +178,12 @@ export function EmotionalPatterns() {
             {emotionSeries.length > 0 ? (
               <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
                 {/* Axes */}
-                <line x1={margin.left} y1={height - margin.bottom} x2={width - margin.right} y2={height - margin.bottom} stroke="currentColor" className="text-border" strokeWidth={2} />
-                <line x1={margin.left} y1={margin.top} x2={margin.left} y2={height - margin.bottom} stroke="currentColor" className="text-border" strokeWidth={2} />
+                <line x1={MARGIN.left} y1={height - MARGIN.bottom} x2={width - MARGIN.right} y2={height - MARGIN.bottom} stroke="currentColor" className="text-border" strokeWidth={2} />
+                <line x1={MARGIN.left} y1={MARGIN.top} x2={MARGIN.left} y2={height - MARGIN.bottom} stroke="currentColor" className="text-border" strokeWidth={2} />
                 
                 {/* Y-axis Labels */}
-                <text x={margin.left - 10} y={margin.top} textAnchor="end" className="fill-muted-foreground text-[10px] alignment-baseline-middle">High</text>
-                <text x={margin.left - 10} y={height - margin.bottom} textAnchor="end" className="fill-muted-foreground text-[10px] alignment-baseline-middle">Low</text>
+                <text x={MARGIN.left - 10} y={MARGIN.top} textAnchor="end" className="fill-muted-foreground text-[10px] alignment-baseline-middle">High</text>
+                <text x={MARGIN.left - 10} y={height - MARGIN.bottom} textAnchor="end" className="fill-muted-foreground text-[10px] alignment-baseline-middle">Low</text>
 
                 {/* Lines */}
                 {emotionSeries.map((series, i) => (

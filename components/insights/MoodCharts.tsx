@@ -135,10 +135,10 @@ export function MoodCharts() {
             <svg viewBox={`0 0 ${freqWidth} ${freqHeight}`} className="w-full h-full overflow-visible">
               {/* Axes Base Lines */}
               <line 
-                x1={freqMargin.left} 
-                y1={freqHeight - freqMargin.bottom} 
-                x2={freqWidth - freqMargin.right} 
-                y2={freqHeight - freqMargin.bottom} 
+                x1={FREQ_MARGIN.left} 
+                y1={freqHeight - FREQ_MARGIN.bottom} 
+                x2={freqWidth - FREQ_MARGIN.right} 
+                y2={freqHeight - FREQ_MARGIN.bottom} 
                 stroke="currentColor" 
                 className="text-border" 
                 strokeWidth={2}
@@ -146,10 +146,10 @@ export function MoodCharts() {
 
               {/* Bars */}
               {frequencyData.map((d, i) => {
-                const barWidth = Math.max(4, (freqWidth - freqMargin.left - freqMargin.right) / (dateRange || 180) * 0.8);
+                const barWidth = Math.max(4, (freqWidth - FREQ_MARGIN.left - FREQ_MARGIN.right) / (dateRange || 180) * 0.8);
                 const xPos = xFreq(d.date) - barWidth / 2;
                 const yPos = yFreq(d.count);
-                const barHeight = freqHeight - freqMargin.bottom - yPos;
+                const barHeight = freqHeight - FREQ_MARGIN.bottom - yPos;
 
                 return (
                   <g key={i}>
@@ -189,14 +189,14 @@ export function MoodCharts() {
           <div className="w-full max-w-sm aspect-square relative">
             <svg viewBox={`0 0 ${scatterSize} ${scatterSize}`} className="w-full h-full overflow-visible">
               {/* Quadrant Backgrounds (Optional, subtle) */}
-              <rect x={scatterMargin.left} y={scatterMargin.top} width={(scatterSize-scatterMargin.left-scatterMargin.right)/2} height={(scatterSize-scatterMargin.top-scatterMargin.bottom)/2} className="fill-red-500/5 dark:fill-red-500/10" />
-              <rect x={scatterMargin.left + (scatterSize-scatterMargin.left-scatterMargin.right)/2} y={scatterMargin.top} width={(scatterSize-scatterMargin.left-scatterMargin.right)/2} height={(scatterSize-scatterMargin.top-scatterMargin.bottom)/2} className="fill-green-500/5 dark:fill-green-500/10" />
-              <rect x={scatterMargin.left} y={scatterMargin.top + (scatterSize-scatterMargin.top-scatterMargin.bottom)/2} width={(scatterSize-scatterMargin.left-scatterMargin.right)/2} height={(scatterSize-scatterMargin.top-scatterMargin.bottom)/2} className="fill-orange-500/5 dark:fill-orange-500/10" />
-              <rect x={scatterMargin.left + (scatterSize-scatterMargin.left-scatterMargin.right)/2} y={scatterMargin.top + (scatterSize-scatterMargin.top-scatterMargin.bottom)/2} width={(scatterSize-scatterMargin.left-scatterMargin.right)/2} height={(scatterSize-scatterMargin.top-scatterMargin.bottom)/2} className="fill-blue-500/5 dark:fill-blue-500/10" />
+              <rect x={SCATTER_MARGIN.left} y={SCATTER_MARGIN.top} width={(scatterSize-SCATTER_MARGIN.left-SCATTER_MARGIN.right)/2} height={(scatterSize-SCATTER_MARGIN.top-SCATTER_MARGIN.bottom)/2} className="fill-red-500/5 dark:fill-red-500/10" />
+              <rect x={SCATTER_MARGIN.left + (scatterSize-SCATTER_MARGIN.left-SCATTER_MARGIN.right)/2} y={SCATTER_MARGIN.top} width={(scatterSize-SCATTER_MARGIN.left-SCATTER_MARGIN.right)/2} height={(scatterSize-SCATTER_MARGIN.top-SCATTER_MARGIN.bottom)/2} className="fill-green-500/5 dark:fill-green-500/10" />
+              <rect x={SCATTER_MARGIN.left} y={SCATTER_MARGIN.top + (scatterSize-SCATTER_MARGIN.top-SCATTER_MARGIN.bottom)/2} width={(scatterSize-SCATTER_MARGIN.left-SCATTER_MARGIN.right)/2} height={(scatterSize-SCATTER_MARGIN.top-SCATTER_MARGIN.bottom)/2} className="fill-orange-500/5 dark:fill-orange-500/10" />
+              <rect x={SCATTER_MARGIN.left + (scatterSize-SCATTER_MARGIN.left-SCATTER_MARGIN.right)/2} y={SCATTER_MARGIN.top + (scatterSize-SCATTER_MARGIN.top-SCATTER_MARGIN.bottom)/2} width={(scatterSize-SCATTER_MARGIN.left-SCATTER_MARGIN.right)/2} height={(scatterSize-SCATTER_MARGIN.top-SCATTER_MARGIN.bottom)/2} className="fill-blue-500/5 dark:fill-blue-500/10" />
 
               {/* Axes lines */}
-              <line x1={xScatter(5)} y1={scatterMargin.top} x2={xScatter(5)} y2={scatterSize - scatterMargin.bottom} stroke="currentColor" className="text-border" strokeDasharray="4 4" />
-              <line x1={scatterMargin.left} y1={yScatter(5)} x2={scatterSize - scatterMargin.right} y2={yScatter(5)} stroke="currentColor" className="text-border" strokeDasharray="4 4" />
+              <line x1={xScatter(5)} y1={SCATTER_MARGIN.top} x2={xScatter(5)} y2={scatterSize - SCATTER_MARGIN.bottom} stroke="currentColor" className="text-border" strokeDasharray="4 4" />
+              <line x1={SCATTER_MARGIN.left} y1={yScatter(5)} x2={scatterSize - SCATTER_MARGIN.right} y2={yScatter(5)} stroke="currentColor" className="text-border" strokeDasharray="4 4" />
 
               {/* Axis Labels */}
               <text x={scatterSize / 2} y={scatterSize - 10} textAnchor="middle" className="fill-muted-foreground text-xs font-medium">Polarity (Negative → Positive)</text>
