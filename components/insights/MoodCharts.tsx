@@ -9,6 +9,9 @@ import { JournalEntry } from '@/types/journal';
 
 type DateRange = 7 | 30 | 90 | 0; // 0 means All Time
 
+const FREQ_MARGIN = { top: 20, right: 20, bottom: 30, left: 40 };
+const SCATTER_MARGIN = { top: 30, right: 30, bottom: 40, left: 40 };
+
 export function MoodCharts() {
   const { user } = useAuth();
   const { data: entries, loading } = useFirestore<JournalEntry>(
@@ -54,7 +57,6 @@ export function MoodCharts() {
   // --- Frequency Chart Scales ---
   const freqWidth = 600;
   const freqHeight = 200;
-  const freqMargin = { top: 20, right: 20, bottom: 30, left: 40 };
 
   const xFreq = useMemo(() => {
     const dates = frequencyData.map(d => d.date);
@@ -67,31 +69,30 @@ export function MoodCharts() {
 
     return d3.scaleTime()
       .domain(domain)
-      .range([freqMargin.left, freqWidth - freqMargin.right]);
-  }, [frequencyData, freqMargin]);
+      .range([FREQ_MARGIN.left, freqWidth - FREQ_MARGIN.right]);
+  }, [frequencyData]);
 
   const yFreq = useMemo(() => {
     const maxCount = d3.max(frequencyData, d => d.count) || 5;
     return d3.scaleLinear()
       .domain([0, maxCount])
-      .range([freqHeight - freqMargin.bottom, freqMargin.top]);
-  }, [frequencyData, freqHeight, freqMargin]);
+      .range([freqHeight - FREQ_MARGIN.bottom, FREQ_MARGIN.top]);
+  }, [frequencyData, freqHeight]);
 
   // --- Scatter Plot Scales ---
   const scatterSize = 400;
-  const scatterMargin = { top: 30, right: 30, bottom: 40, left: 40 };
 
   const xScatter = useMemo(() => {
     return d3.scaleLinear()
       .domain([0, 10]) // Polarity: 0 to 10
-      .range([scatterMargin.left, scatterSize - scatterMargin.right]);
-  }, [scatterMargin]);
+      .range([SCATTER_MARGIN.left, scatterSize - SCATTER_MARGIN.right]);
+  }, [scatterSize]);
 
   const yScatter = useMemo(() => {
     return d3.scaleLinear()
       .domain([0, 10]) // Intensity: 0 to 10
-      .range([scatterSize - scatterMargin.bottom, scatterMargin.top]);
-  }, [scatterSize, scatterMargin]);
+      .range([scatterSize - SCATTER_MARGIN.bottom, SCATTER_MARGIN.top]);
+  }, [scatterSize]);
 
   const colorScale = useMemo(() => {
     // Map polarity to a diverging color scale (0 = red/negative, 5 = gray/neutral, 10 = green/blue/positive)

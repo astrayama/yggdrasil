@@ -11,6 +11,8 @@ import { JournalEntry, EntryAnalysis } from '@/types/journal';
 
 type DateRange = 14 | 30 | 90;
 
+const MARGIN = { top: 20, right: 120, bottom: 30, left: 40 };
+
 export function EmotionalPatterns() {
   const { user } = useAuth();
   const { data: entries, loading: entriesLoading } = useFirestore<JournalEntry>(
@@ -111,7 +113,6 @@ export function EmotionalPatterns() {
   // --- D3 Line Chart Configuration ---
   const width = 600;
   const height = 250;
-  const margin = { top: 20, right: 120, bottom: 30, left: 40 };
 
   const xLine = useMemo(() => {
     const allDates = emotionSeries.flatMap(s => s.data.map(d => d.date));
@@ -125,14 +126,14 @@ export function EmotionalPatterns() {
 
     return d3.scaleTime()
       .domain(domain)
-      .range([margin.left, width - margin.right]);
-  }, [emotionSeries, dateRange, margin]);
+      .range([MARGIN.left, width - MARGIN.right]);
+  }, [emotionSeries, dateRange]);
 
   const yLine = useMemo(() => {
     return d3.scaleLinear()
       .domain([0, 10]) // Intensity is 0-10
-      .range([height - margin.bottom, margin.top]);
-  }, [height, margin]);
+      .range([height - MARGIN.bottom, MARGIN.top]);
+  }, [height]);
 
   const colorScale = d3.scaleOrdinal(d3.schemeCategory10);
 

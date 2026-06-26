@@ -45,7 +45,6 @@ export async function GET(request: Request) {
     return NextResponse.json(cleanData);
   } catch (error: any) {
     console.error('Knowledge Graph API Error:', error);
-    require('fs').writeFileSync('./kg-error.log', error.stack || error.toString());
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }

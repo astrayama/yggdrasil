@@ -550,7 +550,7 @@ function NodePopover({ node, x, y, entries, containerRef }: { node: GraphNode, x
         return (
           <div className="mt-3 text-[10px] text-gold/90 bg-gold/5 border border-gold/20 rounded-md p-2 font-medium leading-relaxed flex items-start gap-1.5 shadow-[0_0_10px_rgba(212,175,55,0.05)]">
             <span className="text-xs">✨</span>
-            <span>You've been here before. You've explored this {relatedEntries.length} times over {timeSpanStr}.</span>
+            <span>You&apos;ve been here before. You&apos;ve explored this {relatedEntries.length} times over {timeSpanStr}.</span>
           </div>
         );
       })() : relatedEntries.length > 1 ? (
