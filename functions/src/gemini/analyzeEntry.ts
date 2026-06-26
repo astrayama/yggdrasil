@@ -119,19 +119,13 @@ Entry (depthScore: ${depthScore}):
       const analysisText = match ? match[0] : analysisResponse;
       const analysisFields = JSON.parse(analysisText);
 
-      logger.info(`[analyzeEntry] Saving analysis to Firestore...`);
-      const batch = db.batch();
-
-      const analysisRef = db.collection(`users/${userId}/entries/${entryId}/analysis`).doc();
-      batch.set(analysisRef, {
-        entryId,
-        depthScore,
-        ...analysisFields,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      });
-
       const entryUpdateData: any = {
         analysisStatus: 'complete',
+        analysis: {
+          depthScore,
+          ...analysisFields,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        }
       };
       
       if (embeddingValues) {
@@ -142,10 +136,17 @@ Entry (depthScore: ${depthScore}):
         entryUpdateData.embeddingError = true;
       }
 
-      batch.update(entryRef, entryUpdateData);
+      // Compute and persist similarity edges before finalizing status
+      if (embeddingValues) {
+        logger.info(`[analyzeEntry] Computing similarity edges...`);
+        await computeAndSaveEdges(userId, entryId, embeddingValues);
+        
+        logger.info(`[analyzeEntry] Recomputing clusters...`);
+        await computeAndSaveClusters(userId);
+      }
 
-      await batch.commit();
-      logger.info(`[analyzeEntry] Analysis successfully saved to Firestore.`);
+      await entryRef.update(entryUpdateData);
+      logger.info(`[analyzeEntry] Analysis successfully saved to Firestore and status set to complete.`);
 
       logger.info('insight_generated', { userId, entryId, depthScore });
       await logInsightGenerated(userId, entryId, depthScore);
@@ -161,14 +162,7 @@ Entry (depthScore: ${depthScore}):
       });
       logger.info(`[analyzeEntry] Logged to opsLogs collection.`);
 
-      // Compute and persist similarity edges for the Knowledge Graph
-      if (embeddingValues) {
-        logger.info(`[analyzeEntry] Computing similarity edges...`);
-        await computeAndSaveEdges(userId, entryId, embeddingValues);
-        
-        logger.info(`[analyzeEntry] Recomputing clusters...`);
-        await computeAndSaveClusters(userId);
-      }
+
 
     } catch (error) {
       logger.error('analyzeEntry failed', { userId, entryId, error });

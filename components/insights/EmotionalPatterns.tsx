@@ -19,58 +19,17 @@ export function EmotionalPatterns() {
   );
 
   const [dateRange, setDateRange] = useState<DateRange>(30);
-  const [analyses, setAnalyses] = useState<Record<string, EntryAnalysis>>({});
-  const [fetchingAnalysis, setFetchingAnalysis] = useState(false);
 
   // 1. Filter entries based on the date range
   const filteredEntries = useMemo(() => {
     if (!entries) return [];
     const now = Date.now();
     const rangeMs = dateRange * 24 * 60 * 60 * 1000;
-    return entries.filter(e => now - e.createdAt <= rangeMs && e.analysisStatus === 'complete');
+    return entries.filter(e => {
+      const timeMs = new Date(e.entryDate || e.createdAt).getTime();
+      return now - timeMs <= rangeMs && e.analysisStatus === 'complete' && e.analysis;
+    });
   }, [entries, dateRange]);
-
-  // 2. Fetch missing analyses for the filtered entries
-  useEffect(() => {
-    if (!user || filteredEntries.length === 0) return;
-
-    const fetchMissing = async () => {
-      setFetchingAnalysis(true);
-      try {
-        const missing = filteredEntries.filter(e => !analyses[e.id]);
-        if (missing.length === 0) {
-          setFetchingAnalysis(false);
-          return;
-        }
-
-        const promises = missing.map(async (entry) => {
-          const q = query(collection(db, `users/${user.uid}/entries/${entry.id}/analysis`), limit(1));
-          const snapshot = await getDocs(q);
-          if (!snapshot.empty) {
-            return { entryId: entry.id, analysis: snapshot.docs[0].data() as EntryAnalysis };
-          }
-          return null;
-        });
-
-        const results = await Promise.all(promises);
-        
-        setAnalyses(prev => {
-          const next = { ...prev };
-          results.forEach(res => {
-            if (res) next[res.entryId] = res.analysis;
-          });
-          return next;
-        });
-      } catch (err) {
-        console.error('Failed to fetch analyses:', err);
-      } finally {
-        setFetchingAnalysis(false);
-      }
-    };
-
-    fetchMissing();
-  }, [filteredEntries, user, analyses]); // analyses dependency triggers infinite loop? No, only missing ones are filtered. But to be safe, we should exclude analyses from dep if possible or use a ref.
-  // Actually, filtering `missing` inside the effect means it stops when `missing.length === 0`.
 
   // 3. Aggregate data for the charts
   const { emotionSeries, topThemes } = useMemo(() => {
@@ -83,10 +42,11 @@ export function EmotionalPatterns() {
     const chronological = [...filteredEntries].sort((a, b) => a.createdAt - b.createdAt);
 
     chronological.forEach(entry => {
-      const date = new Date(entry.createdAt);
+      const date = new Date(entry.entryDate || entry.createdAt);
       const iso = date.toISOString().split('T')[0];
-      const analysis = analyses[entry.id];
+      const analysis = entry.analysis;
       
+      if (!analysis) return;
       if (!dayMap.has(iso)) {
         dayMap.set(iso, { date: new Date(iso), emotions: {}, themes: [] });
       }
@@ -146,7 +106,7 @@ export function EmotionalPatterns() {
       .map(([theme, count]) => ({ theme, count }));
 
     return { emotionSeries: series, topThemes: topT };
-  }, [filteredEntries, analyses]);
+  }, [filteredEntries]);
 
   // --- D3 Line Chart Configuration ---
   const width = 600;
@@ -192,7 +152,7 @@ export function EmotionalPatterns() {
       <div className="flex justify-between items-center">
         <h3 className="text-xl font-display text-foreground">Longitudinal Patterns</h3>
         <div className="flex items-center gap-4">
-          {fetchingAnalysis && <span className="text-xs text-muted-foreground animate-pulse">Analyzing timeframe...</span>}
+
           <select
             value={dateRange}
             onChange={(e) => setDateRange(Number(e.target.value) as DateRange)}

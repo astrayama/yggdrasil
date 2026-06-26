@@ -23,6 +23,7 @@ export interface JournalEntry {
   tags: string[];
   wordCount: number;
   createdAt: number;
+  entryDate?: number; // Narrative date of the entry
   updatedAt: number;
   analysisStatus?: 'pending' | 'complete' | 'error';
   analysisError?: string;

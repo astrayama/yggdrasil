@@ -176,7 +176,7 @@ export function KnowledgeGraph() {
       .join('line')
       .attr('class', (d: any) => isNewEdge(d) ? 'node-link animate-in fade-in duration-1000' : 'node-link')
       .style('animation-fill-mode', 'both')
-      .attr('stroke', (d: any) => d.weak ? 'rgba(167, 139, 250, 0.4)' : 'rgba(167, 139, 250, 0.8)')
+      .attr('stroke', (d: any) => d.weak ? 'rgba(123, 174, 138, 0.15)' : 'rgba(123, 174, 138, 0.35)')
       .attr('stroke-dasharray', (d: any) => d.weak ? '3,5' : 'none')
       .attr('stroke-width', (d: any) => d.weak ? 1 : 1.5);
 
@@ -190,12 +190,15 @@ export function KnowledgeGraph() {
       .selectAll<SVGCircleElement, unknown>('circle')
       .data(nodes)
       .join('circle')
-      .attr('r', d => Math.max(5, Math.min(18, d.weight * 2.5 + 4)))
+      .attr('r', d => Math.max(5, Math.min(18, ((d.weight || 0) * 2.5) + 4)))
       .attr('fill', d => colorScale(d.type) as string)
-      .attr('stroke', 'rgba(255,255,255,0.6)')
-      .attr('stroke-width', 1.5)
+      .attr('stroke', (d: any) => (d.weight || 0) >= 2 ? '#D4AF37' : 'rgba(255,255,255,0.6)')
+      .attr('stroke-width', (d: any) => (d.weight || 0) >= 2 ? 2.5 : 1.5)
       .attr('class', (d: any) => {
-        const baseClass = 'cursor-pointer transition-all hover:stroke-foreground/50 focus:outline-none focus:stroke-primary';
+        let baseClass = 'cursor-pointer transition-all hover:stroke-foreground/50 focus:outline-none focus:stroke-primary';
+        if ((d.weight || 0) >= 2) {
+          baseClass += ' drop-shadow-[0_0_12px_rgba(212,175,55,0.6)] animate-pulse-slow';
+        }
         return isNewNode(d) ? `${baseClass} animate-in zoom-in fade-in duration-1000` : baseClass;
       })
       .style('animation-fill-mode', 'both')
@@ -499,7 +502,7 @@ function NodePopover({ node, x, y, entries, containerRef }: { node: GraphNode, x
   const entry = relatedEntries[0];
   if (!entry) return null;
 
-  const dateStr = new Date(entry.createdAt).toLocaleDateString();
+  const dateStr = new Date(entry.entryDate || entry.createdAt).toLocaleDateString();
   const snippet = getRelevantSnippet(entry.content, node.label);
 
   const containerWidth = containerRef.current?.clientWidth || 800;
@@ -531,11 +534,30 @@ function NodePopover({ node, x, y, entries, containerRef }: { node: GraphNode, x
       <h4 className="text-sm font-semibold text-foreground mb-1 capitalize leading-tight">{node.label}</h4>
       <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">{snippet}</p>
       
-      {relatedEntries.length > 1 && (
+      {relatedEntries.length >= 3 ? (() => {
+        const sortedDates = relatedEntries.map(e => e.entryDate || e.createdAt).sort((a, b) => a - b);
+        const earliest = new Date(sortedDates[0]);
+        const latest = new Date(sortedDates[sortedDates.length - 1]);
+        const diffDays = Math.max(1, Math.round((latest.getTime() - earliest.getTime()) / (1000 * 60 * 60 * 24)));
+        
+        let timeSpanStr = `${diffDays} days`;
+        if (diffDays >= 30) {
+          timeSpanStr = `${Math.round(diffDays / 30)} months`;
+        } else if (diffDays >= 14) {
+          timeSpanStr = `${Math.round(diffDays / 7)} weeks`;
+        }
+
+        return (
+          <div className="mt-3 text-[10px] text-gold/90 bg-gold/5 border border-gold/20 rounded-md p-2 font-medium leading-relaxed flex items-start gap-1.5 shadow-[0_0_10px_rgba(212,175,55,0.05)]">
+            <span className="text-xs">✨</span>
+            <span>You've been here before. You've explored this {relatedEntries.length} times over {timeSpanStr}.</span>
+          </div>
+        );
+      })() : relatedEntries.length > 1 ? (
         <div className="mt-3 text-[10px] text-muted-foreground border-t border-border/40 pt-2 font-medium">
           + {relatedEntries.length - 1} other mentions
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { collection, query, orderBy, limit, getDocs, startAfter, DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, getDocsFromServer, startAfter, where, DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
 import { useAuth } from '@/hooks/useAuth';
 import type { JournalEntry } from '@/types/journal';
@@ -18,6 +18,7 @@ export function EntryList() {
   const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<JournalEntry> | null>(null);
   const [hasMore, setHasMore] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [connectionData, setConnectionData] = useState<Record<string, { count: number; theme: string | null }>>({});
 
   const fetchEntries = useCallback(async (isInitial = false) => {
     if (!user) return;
@@ -35,9 +36,9 @@ export function EntryList() {
       }
 
       const snapshot = await getDocs(q);
-      
       const newEntries = snapshot.docs.map(doc => doc.data());
-      
+
+      // Start logic with newEntries which is defined above
       if (isInitial) {
         setEntries(newEntries);
       } else {
@@ -50,6 +51,63 @@ export function EntryList() {
       } else {
         setHasMore(true);
         setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+      }
+
+      // Fire off connection data fetch asynchronously to not block UI render
+      if (newEntries.length > 0) {
+        (async () => {
+          try {
+            const entryIds = newEntries.map(e => e.id);
+            const connectionsRef = collection(db, `users/${user.uid}/connections`);
+            
+            // Firestore 'in' supports up to 10 items, matching our PAGE_SIZE perfectly.
+            const q1 = query(connectionsRef, where('sourceId', 'in', entryIds));
+            const q2 = query(connectionsRef, where('targetId', 'in', entryIds));
+            
+            const [snap1, snap2] = await Promise.all([getDocs(q1), getDocs(q2)]);
+            
+            const newConnectionData: Record<string, { count: number; theme: string | null }> = {};
+            
+            snap1.docs.forEach(doc => {
+              const data = doc.data();
+              if (data.weak !== false && data.similarity <= 0.8) return;
+              const existing = newConnectionData[data.sourceId] || { count: 0, theme: null };
+              newConnectionData[data.sourceId] = {
+                count: existing.count + 1,
+                theme: existing.theme || data.theme || data.reason || null
+              };
+            });
+            
+            snap2.docs.forEach(doc => {
+              const data = doc.data();
+              if (data.weak !== false && data.similarity <= 0.8) return;
+              const existing = newConnectionData[data.targetId] || { count: 0, theme: null };
+              newConnectionData[data.targetId] = {
+                count: existing.count + 1,
+                theme: existing.theme || data.theme || data.reason || null
+              };
+            });
+
+            if (isInitial) {
+              setConnectionData(newConnectionData);
+            } else {
+              setConnectionData(prev => {
+                const merged = { ...prev };
+                Object.keys(newConnectionData).forEach(k => {
+                  if (merged[k]) {
+                    merged[k].count += newConnectionData[k].count;
+                    merged[k].theme = merged[k].theme || newConnectionData[k].theme;
+                  } else {
+                    merged[k] = newConnectionData[k];
+                  }
+                });
+                return merged;
+              });
+            }
+          } catch (e) {
+            console.error("Failed to fetch connection counts", e);
+          }
+        })();
       }
     } catch (err) {
       console.error("Error fetching entries:", err);
@@ -130,7 +188,7 @@ export function EntryList() {
             >
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-3">
                 <time className="text-sm text-gold/80 font-medium tracking-wide" suppressHydrationWarning>
-                  {new Date(entry.createdAt).toLocaleDateString(undefined, {
+                  {new Date(entry.entryDate || entry.createdAt).toLocaleDateString(undefined, {
                     weekday: 'long',
                     year: 'numeric',
                     month: 'short',
@@ -148,6 +206,18 @@ export function EntryList() {
                     <span className="px-2.5 py-1 bg-surface rounded-full text-[10px] uppercase tracking-wider text-sage border border-sage/20">
                       {entry.moodLabel}
                     </span>
+                  )}
+                  {connectionData[entry.id]?.count >= 2 && (
+                    <div className="relative group/badge">
+                      <span className="px-2.5 py-1 bg-surface rounded-full text-[10px] uppercase tracking-wider text-gold border border-gold/40 flex items-center gap-1 shadow-[0_0_10px_rgba(212,175,55,0.1)] cursor-help">
+                        ✨ Feels familiar ({connectionData[entry.id].count})
+                      </span>
+                      {connectionData[entry.id].theme && (
+                        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 p-2 bg-surface border border-border/60 rounded shadow-lg text-[10px] text-foreground/80 opacity-0 group-hover/badge:opacity-100 pointer-events-none transition-opacity z-10 text-center">
+                          Pattern: {connectionData[entry.id].theme}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </div>

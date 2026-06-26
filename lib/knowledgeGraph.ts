@@ -157,11 +157,12 @@ export function buildKnowledgeGraph(
       avgVector = new Array(dims).fill(0);
       for (const vec of data.embeddings) {
         for (let i = 0; i < dims; i++) {
-          avgVector[i] += vec[i];
+          avgVector[i] += (vec[i] || 0);
         }
       }
       for (let i = 0; i < dims; i++) {
         avgVector[i] /= data.embeddings.length;
+        if (isNaN(avgVector[i])) avgVector[i] = 0;
       }
     }
     
@@ -175,14 +176,53 @@ export function buildKnowledgeGraph(
     };
   });
   
+  // 3.5 Merge highly similar themes to find common ground
+  const mergedNodes: typeof nodesWithEmbeddings = [];
+  const MERGE_THRESHOLD = 0.92;
+  
+  for (const node of nodesWithEmbeddings) {
+    if (node.type !== 'theme' || !node.vector) {
+      mergedNodes.push(node);
+      continue;
+    }
+    
+    // Check if we can merge this theme into an existing one
+    let merged = false;
+    for (const existing of mergedNodes) {
+      if (existing.type === 'theme' && existing.vector) {
+        const sim = cosineSimilarity(node.vector, existing.vector);
+        if (sim >= MERGE_THRESHOLD) {
+          // Merge node into existing
+          existing.weight += node.weight;
+          existing.entryIds = Array.from(new Set([...existing.entryIds, ...node.entryIds]));
+          // Prefer the shorter label as the umbrella term
+          if (node.label.length < existing.label.length) {
+            existing.label = node.label;
+          }
+          // Average the vectors
+          const dims = existing.vector.length;
+          for (let i = 0; i < dims; i++) {
+            existing.vector[i] = (existing.vector[i] + (node.vector[i] || 0)) / 2;
+            if (isNaN(existing.vector[i])) existing.vector[i] = 0;
+          }
+          merged = true;
+          break;
+        }
+      }
+    }
+    if (!merged) {
+      mergedNodes.push(node);
+    }
+  }
+
   // 4. Compute Edges based on cosine similarity
   // Strategy: guarantee every node gets connected to its K nearest neighbors,
   // then add bonus edges for pairs above a dynamic threshold. The threshold
   // adapts to the corpus — a small homogeneous journal might have a baseline
   // of 0.95 while a large diverse one might sit at 0.75.
-  const nodes: GraphNode[] = nodesWithEmbeddings.map(n => ({ id: n.id, label: n.label, type: n.type, weight: n.weight, entryIds: n.entryIds }));
+  const nodes: GraphNode[] = mergedNodes.map(n => ({ id: n.id, label: n.label, type: n.type, weight: n.weight, entryIds: n.entryIds }));
   
-  const validNodes = nodesWithEmbeddings.filter(n => n.vector !== null);
+  const validNodes = mergedNodes.filter(n => n.vector !== null);
   
   const MIN_NEIGHBORS = 2;  // Every node gets at least this many edges
   const MAX_EDGES_PER_NODE = 5; // Cap to keep graph readable
@@ -194,7 +234,8 @@ export function buildKnowledgeGraph(
   const allSims: number[] = [];
   for (let i = 0; i < validNodes.length; i++) {
     for (let j = i + 1; j < validNodes.length; j++) {
-      const sim = cosineSimilarity(validNodes[i].vector!, validNodes[j].vector!);
+      let sim = cosineSimilarity(validNodes[i].vector!, validNodes[j].vector!);
+      if (isNaN(sim)) sim = 0;
       simMatrix.set(getSimKey(validNodes[i].id, validNodes[j].id), sim);
       allSims.push(sim);
     }
