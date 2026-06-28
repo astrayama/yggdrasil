@@ -3,7 +3,7 @@
 import { useAuth } from '@/hooks/useAuth';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useRouter } from 'next/navigation';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useFirestoreDoc } from '@/hooks/useFirestore';
 import { setDoc, doc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/client';
@@ -34,8 +34,8 @@ export default function SettingsPage() {
 
   const prefsPath = user ? `users/${user.uid}/settings/preferences` : '';
   const { data: preferences, loading } = useFirestoreDoc<{ enabledFrameworks?: string[] }>(prefsPath);
-  const enabledFrameworks = preferences?.enabledFrameworks ?? [];
   const hasPaidPlan = Boolean(subscription.billingPeriod);
+  const enabledFrameworks = useMemo(() => preferences?.enabledFrameworks ?? [], [preferences?.enabledFrameworks]);
 
   const toggleFramework = useCallback(async (frameworkId: string) => {
     if (!user) return;

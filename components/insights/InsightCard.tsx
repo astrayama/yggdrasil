@@ -9,6 +9,8 @@ interface InsightCardProps {
 
 export function InsightCard({ analysis }: InsightCardProps) {
   const { interpretation, themes, emotions, keywords, safety_concerns } = analysis;
+  const patternsIdentified = interpretation.patterns_identified ?? [];
+  const frameworksApplied = interpretation.frameworks_applied ?? [];
   
   const [showDepth, setShowDepth] = useState(false);
   const [showQuestions, setShowQuestions] = useState(false);
@@ -121,13 +123,13 @@ export function InsightCard({ analysis }: InsightCardProps) {
         </div>
 
         {/* Patterns & Frameworks */}
-        {((interpretation.patterns_identified?.length ?? 0) > 0 || (interpretation.frameworks_applied?.length ?? 0) > 0) && (
+        {(patternsIdentified.length > 0 || frameworksApplied.length > 0) && (
           <div className="flex flex-col sm:flex-row gap-6 pt-4 border-t border-border/40">
-            {(interpretation.patterns_identified?.length ?? 0) > 0 && (
+            {patternsIdentified.length > 0 && (
               <div className="flex-1">
                 <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Patterns Identified</h4>
                 <ul className="space-y-2">
-                  {interpretation.patterns_identified.map((pattern, i) => (
+                  {patternsIdentified.map((pattern, i) => (
                     <li key={i} className="text-sm text-foreground/80 flex items-start gap-2">
                       <span className="text-border mt-0.5">•</span>
                       <span>{pattern}</span>
@@ -136,11 +138,11 @@ export function InsightCard({ analysis }: InsightCardProps) {
                 </ul>
               </div>
             )}
-            {(interpretation.frameworks_applied?.length ?? 0) > 0 && (
+            {frameworksApplied.length > 0 && (
               <div className="flex-1">
                 <h4 className="text-xs uppercase tracking-wider text-muted-foreground mb-3">Frameworks Applied</h4>
                 <div className="flex flex-wrap gap-2">
-                  {interpretation.frameworks_applied?.map((fw, idx) => (
+                  {frameworksApplied.map((fw, idx) => (
                     <span 
                       key={idx} 
                       className="px-3 py-1 bg-surface-2 rounded-full text-xs text-foreground/80 border border-gold/30"

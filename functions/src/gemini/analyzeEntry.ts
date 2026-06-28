@@ -4,6 +4,8 @@ import * as logger from 'firebase-functions/logger';
 import { logInsightGenerated } from '../lib/analytics';
 import { generateText, generateEmbedding, geminiapikey } from '../lib/gemini';
 import { FREE_INSIGHT_LIMIT, type BillingPeriod, type SubscriptionStatus } from '../stripe/shared';
+import { computeAndSaveEdges } from './computeConnections';
+import { computeAndSaveClusters } from './computeClusters';
 
 
 
@@ -81,7 +83,7 @@ Entry:
 
 Required fields:
 - "entities": [{ "type": "person"|"place"|"event"|"concept", "name": string }, ...]
-- "themes": string[] — up to 5 overarching topic phrases
+- "themes": string[] — up to 5 overarching topics. Crucial: Extract very broad, single-word or short universal concepts (e.g. "Family", "Anxiety", "Career", "Vulnerability", "Self-Worth") rather than highly specific phrases. This ensures commonality across entries.
 - "emotions": [{ "label": string, "polarity": number (0–10; 5=neutral; lower=more negative, higher=more positive), "intensity": number (0–10; 5=moderate) }, ...]
 - "keywords": string[] — significant single words or short phrases for search and tagging
 - "summary": string — 2–3 sentence neutral third-person summary of what the entry is about; no interpretation
@@ -168,10 +170,17 @@ Entry (depthScore: ${depthScore}):
         entryUpdateData.embeddingError = true;
       }
 
-      batch.update(entryRef, entryUpdateData);
+      // Compute and persist similarity edges before finalizing status
+      if (embeddingValues) {
+        logger.info(`[analyzeEntry] Computing similarity edges...`);
+        await computeAndSaveEdges(userId, entryId, embeddingValues);
+        
+        logger.info(`[analyzeEntry] Recomputing clusters...`);
+        await computeAndSaveClusters(userId);
+      }
 
-      await batch.commit();
-      logger.info(`[analyzeEntry] Analysis successfully saved to Firestore.`);
+      await entryRef.update(entryUpdateData);
+      logger.info(`[analyzeEntry] Analysis successfully saved to Firestore and status set to complete.`);
 
       logger.info('insight_generated', { userId, entryId, depthScore });
       await logInsightGenerated(userId, entryId, depthScore);
@@ -186,6 +195,8 @@ Entry (depthScore: ${depthScore}):
         depthScore
       });
       logger.info(`[analyzeEntry] Logged to opsLogs collection.`);
+
+
 
     } catch (error) {
       logger.error('analyzeEntry failed', { userId, entryId, error });
