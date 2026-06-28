@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
-import { getFriendlyAuthErrorMessage } from '@/lib/auth';
+import { getFriendlyAuthErrorMessage } from '@/lib/auth-errors';
 
 interface AuthFormProps {
   mode: 'login' | 'signup';
