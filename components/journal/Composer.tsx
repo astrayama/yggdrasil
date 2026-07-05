@@ -21,6 +21,93 @@ export interface ComposerProps {
   linkRootId?: string | null;
 }
 
+const BLOCK_SELECTOR = "p, div, h1, h2, h3, h4, h5, h6, blockquote, li, pre";
+
+const MARKDOWN_SHORTCUTS: Record<
+  string,
+  { command: string; value?: string }
+> = {
+  "#": { command: "formatBlock", value: "<h1>" },
+  "##": { command: "formatBlock", value: "<h2>" },
+  "-": { command: "insertUnorderedList" },
+  ">": { command: "formatBlock", value: "<blockquote>" },
+};
+
+function getMarkdownPrefixRange(
+  editor: HTMLDivElement,
+  caretRange: Range
+): { range: Range; command: string; value?: string } | null {
+  if (!caretRange.collapsed || !editor.contains(caretRange.startContainer)) {
+    return null;
+  }
+
+  const caretElement =
+    caretRange.startContainer.nodeType === Node.ELEMENT_NODE
+      ? (caretRange.startContainer as Element)
+      : caretRange.startContainer.parentElement;
+  const closestBlock = caretElement?.closest(BLOCK_SELECTOR);
+  const block =
+    closestBlock instanceof HTMLElement && editor.contains(closestBlock)
+      ? closestBlock
+      : editor;
+
+  const lineRange = document.createRange();
+  lineRange.selectNodeContents(block);
+  lineRange.setEnd(caretRange.startContainer, caretRange.startOffset);
+
+  for (const breakElement of block.querySelectorAll("br")) {
+    const parent = breakElement.parentNode;
+    if (!parent) continue;
+
+    const offsetAfterBreak =
+      Array.from(parent.childNodes).indexOf(breakElement) + 1;
+    if (caretRange.comparePoint(parent, offsetAfterBreak) <= 0) {
+      lineRange.setStart(parent, offsetAfterBreak);
+    }
+  }
+
+  const textBeforeCaret = lineRange.toString();
+  const lastNewlineIndex = Math.max(
+    textBeforeCaret.lastIndexOf("\n"),
+    textBeforeCaret.lastIndexOf("\r")
+  );
+  const prefix = textBeforeCaret.slice(lastNewlineIndex + 1);
+  const shortcut = MARKDOWN_SHORTCUTS[prefix];
+  if (!shortcut) return null;
+
+  const prefixStartOffset = textBeforeCaret.length - prefix.length;
+  const textWalker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
+  let consumedCharacters = 0;
+  let textNode = textWalker.nextNode();
+
+  while (textNode) {
+    if (lineRange.intersectsNode(textNode)) {
+      const nodeStart =
+        textNode === lineRange.startContainer ? lineRange.startOffset : 0;
+      const nodeEnd =
+        textNode === lineRange.endContainer
+          ? lineRange.endOffset
+          : textNode.textContent?.length ?? 0;
+      const nodeLength = Math.max(0, nodeEnd - nodeStart);
+
+      if (prefixStartOffset <= consumedCharacters + nodeLength) {
+        const prefixRange = lineRange.cloneRange();
+        prefixRange.setStart(
+          textNode,
+          nodeStart + prefixStartOffset - consumedCharacters
+        );
+        return { range: prefixRange, ...shortcut };
+      }
+
+      consumedCharacters += nodeLength;
+    }
+
+    textNode = textWalker.nextNode();
+  }
+
+  return null;
+}
+
 /** Small banner showing which Root this reflection will be woven into. */
 function ReflectingOnRoot({ rootId }: { rootId: string }) {
   const { data: root } = useFirestoreDoc<Root>(
@@ -103,8 +190,8 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRecording]);
 
-  const handleCommand = (command: string) => {
-    document.execCommand(command, false, undefined);
+  const handleCommand = (command: string, value?: string) => {
+    document.execCommand(command, false, value);
     if (editorRef.current) {
       editorRef.current.focus();
     }
@@ -114,6 +201,48 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
     if (editorRef.current) {
       setContent(editorRef.current.innerHTML);
     }
+  };
+
+  const handlePaste = (event: React.ClipboardEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    const plainText = event.clipboardData.getData("text/plain");
+    document.execCommand("insertText", false, plainText);
+    handleInput();
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+    if (
+      event.key !== " " ||
+      event.ctrlKey ||
+      event.metaKey ||
+      event.altKey ||
+      event.nativeEvent.isComposing
+    ) {
+      return;
+    }
+
+    const editor = editorRef.current;
+    const selection = window.getSelection();
+    if (!editor || !selection || selection.rangeCount === 0) return;
+
+    const shortcut = getMarkdownPrefixRange(editor, selection.getRangeAt(0));
+    if (!shortcut) return;
+
+    event.preventDefault();
+    selection.removeAllRanges();
+    selection.addRange(shortcut.range);
+    document.execCommand("delete", false);
+
+    if (!selection.isCollapsed && selection.rangeCount > 0) {
+      const fallbackRange = selection.getRangeAt(0);
+      fallbackRange.deleteContents();
+      fallbackRange.collapse(true);
+      selection.removeAllRanges();
+      selection.addRange(fallbackRange);
+    }
+
+    document.execCommand(shortcut.command, false, shortcut.value);
+    handleInput();
   };
 
   const handleTranscriptReady = useCallback((transcript: string, storagePath: string) => {
@@ -237,6 +366,7 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
       {/* Toolbar */}
       <div className="flex items-center gap-1.5 p-3 border-b border-border/40 bg-surface">
         <button
+          onMouseDown={(event) => event.preventDefault()}
           onClick={() => handleCommand("bold")}
           className="px-3 py-1.5 rounded-sm hover:bg-muted/30 font-bold text-sm transition-colors text-foreground/85 hover:text-foreground cursor-pointer"
           title="Bold (Cmd+B)"
@@ -244,6 +374,7 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
           B
         </button>
         <button
+          onMouseDown={(event) => event.preventDefault()}
           onClick={() => handleCommand("italic")}
           className="px-3 py-1.5 rounded-sm hover:bg-muted/30 italic text-sm transition-colors text-foreground/85 hover:text-foreground cursor-pointer"
           title="Italic (Cmd+I)"
@@ -251,6 +382,23 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
           I
         </button>
         <button
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => handleCommand("formatBlock", "<h1>")}
+          className="px-3 py-1.5 rounded-sm hover:bg-muted/30 text-sm transition-colors text-foreground/85 hover:text-foreground cursor-pointer"
+          title="Heading 1"
+        >
+          H1
+        </button>
+        <button
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => handleCommand("formatBlock", "<h2>")}
+          className="px-3 py-1.5 rounded-sm hover:bg-muted/30 text-sm transition-colors text-foreground/85 hover:text-foreground cursor-pointer"
+          title="Heading 2"
+        >
+          H2
+        </button>
+        <button
+          onMouseDown={(event) => event.preventDefault()}
           onClick={() => handleCommand("insertUnorderedList")}
           className="px-3 py-1.5 rounded-sm hover:bg-muted/30 text-sm transition-colors text-foreground/85 hover:text-foreground flex items-center gap-1.5 cursor-pointer"
           title="Bulleted List"
@@ -315,9 +463,15 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
           <div
             ref={editorRef}
             className="flex-1 px-8 pb-8 outline-none overflow-y-auto text-body-lg leading-relaxed text-foreground bg-transparent
-                       empty:before:content-[attr(data-placeholder)] empty:before:text-foreground/30 empty:before:pointer-events-none empty:before:block"
+                       empty:before:content-[attr(data-placeholder)] empty:before:text-foreground/30 empty:before:pointer-events-none empty:before:block
+                       [&_h1]:my-3 [&_h1]:font-display [&_h1]:text-4xl [&_h1]:font-semibold [&_h1]:leading-tight
+                       [&_h2]:my-2 [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:leading-snug
+                       [&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:border-sage/50 [&_blockquote]:pl-4 [&_blockquote]:italic [&_blockquote]:text-foreground/75
+                       [&_ul]:my-3 [&_ul]:list-disc [&_ul]:pl-6 [&_li]:my-1"
             contentEditable
             onInput={handleInput}
+            onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             data-placeholder="Write your entry here..."
           />
         </div>
