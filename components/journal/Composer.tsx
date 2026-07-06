@@ -6,13 +6,21 @@ import { MoodSliders, type MoodState } from "./MoodSliders";
 import { VoiceRecorder } from "./VoiceRecorder";
 import { createEntry, updateEntry } from "@/lib/entries";
 import { linkEntryToRoot } from "@/lib/roots";
-import { auth } from "@/lib/firebase/client";
 import { logEntryCreated, logRootEntryLinked } from "@/lib/analytics/client";
 import { ThinkingIndicator } from "./ThinkingIndicator";
 import { toast } from "sonner";
 import type { JournalEntry } from "@/types/journal";
 import type { Root } from "@/types/goals";
 import { useFirestoreDoc } from "@/hooks/useFirestore";
+import { useAuth } from "@/hooks/useAuth";
+import { NpsPrompt } from "@/components/feedback/NpsPrompt";
+import {
+  canShowFeedbackPrompt,
+  ENTRY_FIVE_TRIGGER,
+  isFifthJournalEntry,
+  markFeedbackPromptShown,
+  type FeedbackTrigger,
+} from "@/lib/feedback";
 
 export interface ComposerProps {
   initialEntry?: JournalEntry;
@@ -22,9 +30,15 @@ export interface ComposerProps {
 }
 
 /** Small banner showing which Root this reflection will be woven into. */
-function ReflectingOnRoot({ rootId }: { rootId: string }) {
+function ReflectingOnRoot({
+  rootId,
+  userId,
+}: {
+  rootId: string;
+  userId: string;
+}) {
   const { data: root } = useFirestoreDoc<Root>(
-    auth.currentUser ? `users/${auth.currentUser.uid}/roots/${rootId}` : ''
+    `users/${userId}/roots/${rootId}`
   );
 
   if (!root) return null;
@@ -39,6 +53,7 @@ function ReflectingOnRoot({ rootId }: { rootId: string }) {
 }
 
 export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {}) {
+  const { user } = useAuth();
   const editorRef = useRef<HTMLDivElement>(null);
   const [title, setTitle] = useState(initialEntry?.title || "");
   const [content, setContent] = useState(initialEntry?.content || "");
@@ -69,6 +84,7 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
   const [pendingEntryId, setPendingEntryId] = useState<string | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [voiceNoteStoragePath, setVoiceNoteStoragePath] = useState<string | null>(null);
+  const [feedbackTrigger, setFeedbackTrigger] = useState<FeedbackTrigger | null>(null);
 
   const getLocalDatetimeString = (date: Date) => {
     const pad = (n: number) => n.toString().padStart(2, '0');
@@ -141,8 +157,24 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
     setIsRecording(false);
   }, []);
 
+  const checkEntryFiveFeedbackEligibility = useCallback(async (userId: string) => {
+    try {
+      const isFifthEntry = await isFifthJournalEntry(userId);
+      if (
+        isFifthEntry &&
+        canShowFeedbackPrompt(userId, ENTRY_FIVE_TRIGGER) &&
+        markFeedbackPromptShown(userId, ENTRY_FIVE_TRIGGER)
+      ) {
+        setFeedbackTrigger(ENTRY_FIVE_TRIGGER);
+      }
+    } catch (error) {
+      console.error('Failed to check feedback prompt eligibility', error);
+    }
+  }, []);
+
   const handleSave = async () => {
-    if (!content.trim() || !auth.currentUser) return;
+    const userId = user?.uid;
+    if (!content.trim() || !userId) return;
     
     setIsSaving(true);
     setSaveStatus('saving');
@@ -153,7 +185,7 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
       const wordCount = textContent.trim().split(/\s+/).filter(Boolean).length;
       
       if (initialEntry) {
-        await updateEntry(auth.currentUser.uid, initialEntry.id, {
+        await updateEntry(userId, initialEntry.id, {
           title: title.trim() || undefined,
           content,
           entryType,
@@ -165,7 +197,7 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
         toast.success("Entry updated successfully");
       } else {
         entryId = await createEntry({
-          userId: auth.currentUser.uid,
+          userId,
           title: title.trim() || undefined,
           content,
           entryType,
@@ -174,6 +206,7 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
           entryDate: new Date(entryDateStr).getTime()
         });
         toast.success("Entry saved successfully");
+        void checkEntryFiveFeedbackEligibility(userId);
 
         logEntryCreated({
           entry_type: entryType ?? undefined,
@@ -186,7 +219,7 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
         if (linkRootId) {
           try {
             await linkEntryToRoot(
-              auth.currentUser.uid,
+              userId,
               linkRootId,
               {
                 id: entryId,
@@ -232,8 +265,11 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
   };
 
   return (
+    <>
     <div className="w-full max-w-4xl mx-auto flex flex-col h-full min-h-[60vh] bg-surface-2 text-foreground border border-border/60 rounded-sm shadow-md overflow-hidden">
-      {linkRootId && !initialEntry && <ReflectingOnRoot rootId={linkRootId} />}
+      {linkRootId && !initialEntry && user && (
+        <ReflectingOnRoot rootId={linkRootId} userId={user.uid} />
+      )}
       {/* Toolbar */}
       <div className="flex items-center gap-1.5 p-3 border-b border-border/40 bg-surface">
         <button
@@ -348,5 +384,13 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
         </button>
       </div>
     </div>
+    {feedbackTrigger && user && (
+      <NpsPrompt
+        userId={user.uid}
+        trigger={feedbackTrigger}
+        onClose={() => setFeedbackTrigger(null)}
+      />
+    )}
+    </>
   );
 }
