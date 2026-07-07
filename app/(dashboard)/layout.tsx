@@ -106,7 +106,7 @@ export default function DashboardLayout({
 
   return (
     <SubscriptionProvider>
-      <div className="h-screen flex bg-background text-foreground font-sans overflow-hidden">
+      <div className="h-[100dvh] flex bg-background text-foreground font-sans overflow-hidden">
         {/* Desktop Left Sidebar Navigation */}
         <aside className="hidden md:flex flex-col w-[220px] bg-surface border-r border-border h-full shrink-0">
           {/* Wordmark and logo */}
@@ -184,7 +184,7 @@ export default function DashboardLayout({
                 onClick={handleSignOut}
                 disabled={signingOut}
                 aria-label="Sign out"
-                className="rounded-sm border border-border px-2 py-1 text-xs font-medium text-foreground/70 transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
+                className="min-h-11 rounded-sm border border-border px-3 py-1 text-xs font-medium text-foreground/70 transition-colors hover:bg-surface-2 hover:text-foreground disabled:opacity-50"
               >
                 Sign out
               </button>
@@ -192,20 +192,25 @@ export default function DashboardLayout({
           </header>
 
           {/* Content Area */}
-          <main className="flex-1 overflow-y-auto pb-20 md:pb-6 relative bg-background">
+          <main className="flex-1 overflow-y-auto pb-[calc(5rem+env(safe-area-inset-bottom))] md:pb-6 relative bg-background">
             {children}
           </main>
 
           {/* Mobile Bottom Navigation Bar */}
-          <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface border-t border-border flex items-center justify-around z-40 px-2 shadow-lg">
+          <nav
+            aria-label="Primary navigation"
+            className="md:hidden fixed bottom-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-bottom))] bg-surface border-t border-border flex items-start justify-around z-40 px-2 pt-2 pb-[env(safe-area-inset-bottom)] shadow-lg"
+          >
             {navItems.map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className="flex flex-col items-center justify-center w-12 h-12 relative group"
-                >
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    aria-label={item.name}
+                    aria-current={isActive ? 'page' : undefined}
+                    className="flex flex-col items-center justify-center w-12 h-12 relative group"
+                  >
                   <span className={`transition-colors duration-300 ${isActive ? 'text-gold' : 'text-foreground/40 group-hover:text-foreground/75'}`}>
                     {item.icon}
                   </span>

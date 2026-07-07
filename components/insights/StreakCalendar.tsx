@@ -205,17 +205,17 @@ export function StreakCalendar() {
   const timeNames = ['Morning', 'Afternoon', 'Evening', 'Night'];
 
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 space-y-8">
       {/* Streak Stats */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-card border border-border/50 rounded-xl p-6 text-center shadow-sm">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="bg-card border border-border/50 rounded-xl p-4 sm:p-6 text-center shadow-sm">
           <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">Current Streak</p>
           <div className="text-4xl font-display text-foreground flex items-center justify-center gap-2">
             <span className="text-amber-500">🔥</span>
             {currentStreak} <span className="text-lg text-muted-foreground font-sans lowercase">days</span>
           </div>
         </div>
-        <div className="bg-card border border-border/50 rounded-xl p-6 text-center shadow-sm">
+        <div className="bg-card border border-border/50 rounded-xl p-4 sm:p-6 text-center shadow-sm">
           <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider mb-2">Longest Streak</p>
           <div className="text-4xl font-display text-foreground flex items-center justify-center gap-2">
             <span className="text-emerald-500">✨</span>
@@ -235,7 +235,7 @@ export function StreakCalendar() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Calendar Heatmap */}
-        <div className="lg:col-span-2 bg-card border border-border/50 rounded-xl p-6 shadow-sm overflow-hidden flex flex-col">
+        <div className="min-w-0 lg:col-span-2 bg-card border border-border/50 rounded-xl p-4 sm:p-6 shadow-sm overflow-hidden flex flex-col">
           <h3 className="text-lg font-medium mb-1">Consistency Map</h3>
           <p className="text-xs text-muted-foreground w-full mb-6 text-left">
             A visual record of your daily journaling habit over the past year. Darker squares indicate days with multiple entries. Building a dense, uninterrupted map helps solidify your reflection habit.
@@ -259,7 +259,7 @@ export function StreakCalendar() {
         </div>
 
         {/* Day/Time Heatmap */}
-        <div className="bg-card border border-border/50 rounded-xl p-6 shadow-sm flex flex-col">
+        <div className="min-w-0 bg-card border border-border/50 rounded-xl p-4 sm:p-6 shadow-sm flex flex-col">
           <h3 className="text-lg font-medium mb-1">When You Write</h3>
           <p className="text-xs text-muted-foreground w-full mb-6 text-left">
             Shows your preferred times for reflection throughout the week. Recognizing these patterns can help you intentionally schedule deep-thinking time when you naturally have the most energy.

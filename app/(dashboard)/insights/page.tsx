@@ -12,7 +12,7 @@ export default function InsightsPage() {
   const subscription = useSubscription();
 
   return (
-    <div className="max-w-5xl mx-auto py-12 px-4 sm:px-6">
+    <div className="w-full min-w-0 max-w-5xl mx-auto py-6 md:py-12 px-4 sm:px-6">
       <InsightsTracker />
       
       <div className="mb-10">

@@ -49,7 +49,7 @@ export function EntryTypeSelector({ selectedType, onChange }: EntryTypeSelectorP
             <button
               key={type}
               onClick={() => onChange(isSelected ? null : type)}
-              className={`px-4 py-2 rounded-sm text-sm font-medium transition-all duration-300 border cursor-pointer ${
+              className={`min-h-11 px-4 py-2 rounded-sm text-sm font-medium transition-all duration-300 border cursor-pointer ${
                 isSelected
                   ? styles.active
                   : "bg-muted/20 text-foreground/70 border-border/60 hover:bg-muted/40 hover:text-foreground"

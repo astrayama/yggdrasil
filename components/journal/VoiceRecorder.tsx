@@ -479,7 +479,7 @@ export function VoiceRecorder({ onTranscriptReady, onCancel }: VoiceRecorderProp
   // Idle state (waiting to start)
   if (state === "idle") {
     return (
-      <div className="flex flex-col items-center justify-center gap-6 py-16 px-8">
+      <div className="flex flex-col items-center justify-center gap-6 py-12 sm:py-16 px-4 sm:px-8">
         <button
           onClick={handleStart}
           className="w-20 h-20 rounded-full bg-sage/10 text-sage flex items-center justify-center hover:bg-sage/20 transition-colors cursor-pointer border border-sage/30 group"
@@ -493,7 +493,7 @@ export function VoiceRecorder({ onTranscriptReady, onCancel }: VoiceRecorderProp
         </div>
         <button
           onClick={handleCancel}
-          className="px-5 py-2 text-xs uppercase tracking-wider text-foreground/70 hover:text-foreground border border-border/50 rounded-sm transition-colors cursor-pointer mt-4"
+          className="min-h-11 px-5 py-2 text-xs uppercase tracking-wider text-foreground/70 hover:text-foreground border border-border/50 rounded-sm transition-colors cursor-pointer mt-4"
         >
           Cancel
         </button>
@@ -504,7 +504,7 @@ export function VoiceRecorder({ onTranscriptReady, onCancel }: VoiceRecorderProp
   // Permission denied state
   if (permissionDenied) {
     return (
-      <div className="flex flex-col items-center justify-center gap-6 py-16 px-8">
+      <div className="flex flex-col items-center justify-center gap-6 py-12 sm:py-16 px-4 sm:px-8">
         <div className="w-16 h-16 rounded-full bg-muted/30 flex items-center justify-center">
           <MicOffIcon />
         </div>
@@ -516,7 +516,7 @@ export function VoiceRecorder({ onTranscriptReady, onCancel }: VoiceRecorderProp
         </div>
         <button
           onClick={onCancel}
-          className="px-5 py-2 text-xs uppercase tracking-wider text-foreground/70 hover:text-foreground border border-border/50 rounded-sm transition-colors cursor-pointer"
+          className="min-h-11 px-5 py-2 text-xs uppercase tracking-wider text-foreground/70 hover:text-foreground border border-border/50 rounded-sm transition-colors cursor-pointer"
         >
           Go Back
         </button>
@@ -527,23 +527,23 @@ export function VoiceRecorder({ onTranscriptReady, onCancel }: VoiceRecorderProp
   // Error state
   if (state === "error" && errorMessage) {
     return (
-      <div className="flex flex-col items-center justify-center gap-6 py-16 px-8">
+      <div className="flex flex-col items-center justify-center gap-6 py-12 sm:py-16 px-4 sm:px-8">
         <div className="w-16 h-16 rounded-full bg-destructive/20 flex items-center justify-center">
           <MicOffIcon />
         </div>
         <p className="text-foreground/70 text-sm text-center max-w-sm">
           {errorMessage}
         </p>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap justify-center gap-3">
           <button
             onClick={handleStart}
-            className="px-5 py-2 text-xs uppercase tracking-wider text-sage border border-sage/40 rounded-sm hover:bg-sage/10 transition-colors cursor-pointer"
+            className="min-h-11 px-5 py-2 text-xs uppercase tracking-wider text-sage border border-sage/40 rounded-sm hover:bg-sage/10 transition-colors cursor-pointer"
           >
             Try Again
           </button>
           <button
             onClick={onCancel}
-            className="px-5 py-2 text-xs uppercase tracking-wider text-foreground/70 hover:text-foreground border border-border/50 rounded-sm transition-colors cursor-pointer"
+            className="min-h-11 px-5 py-2 text-xs uppercase tracking-wider text-foreground/70 hover:text-foreground border border-border/50 rounded-sm transition-colors cursor-pointer"
           >
             Cancel
           </button>
@@ -555,7 +555,7 @@ export function VoiceRecorder({ onTranscriptReady, onCancel }: VoiceRecorderProp
   // Processing state
   if (state === "processing") {
     return (
-      <div className="flex flex-col items-center justify-center gap-6 py-16 px-8">
+      <div className="flex flex-col items-center justify-center gap-6 py-12 sm:py-16 px-4 sm:px-8">
         <div className="relative">
           <div className="w-16 h-16 rounded-full border-2 border-sage/30 border-t-sage animate-spin" />
           <div className="absolute inset-0 flex items-center justify-center">
@@ -576,7 +576,7 @@ export function VoiceRecorder({ onTranscriptReady, onCancel }: VoiceRecorderProp
 
   // Recording / paused state
   return (
-    <div className="flex flex-col items-center gap-6 py-8 px-8">
+    <div className="flex flex-col items-center gap-6 py-8 px-4 sm:px-8">
       {/* Recording indicator + timer */}
       <div className="flex items-center gap-3">
         {state === "recording" && (
@@ -621,11 +621,11 @@ export function VoiceRecorder({ onTranscriptReady, onCancel }: VoiceRecorderProp
       )}
 
       {/* Controls */}
-      <div className="flex items-center gap-4">
+      <div className="flex w-full flex-wrap items-center justify-center gap-3 sm:gap-4">
         {/* Cancel */}
         <button
           onClick={handleCancel}
-          className="px-4 py-2 text-xs uppercase tracking-wider text-foreground/50 hover:text-foreground/80 border border-border/40 rounded-sm transition-colors cursor-pointer"
+          className="min-h-11 px-4 py-2 text-xs uppercase tracking-wider text-foreground/50 hover:text-foreground/80 border border-border/40 rounded-sm transition-colors cursor-pointer"
           title="Discard recording"
         >
           Cancel
@@ -635,7 +635,7 @@ export function VoiceRecorder({ onTranscriptReady, onCancel }: VoiceRecorderProp
         {state === "recording" ? (
           <button
             onClick={handlePause}
-            className="px-5 py-2.5 text-xs uppercase tracking-wider text-gold border border-gold/40 rounded-sm hover:bg-gold/10 transition-colors cursor-pointer flex items-center gap-2"
+            className="min-h-11 px-5 py-2.5 text-xs uppercase tracking-wider text-gold border border-gold/40 rounded-sm hover:bg-gold/10 transition-colors cursor-pointer flex items-center gap-2"
             title="Pause recording"
           >
             <PauseIcon />
@@ -644,7 +644,7 @@ export function VoiceRecorder({ onTranscriptReady, onCancel }: VoiceRecorderProp
         ) : state === "paused" ? (
           <button
             onClick={handleResume}
-            className="px-5 py-2.5 text-xs uppercase tracking-wider text-sage border border-sage/40 rounded-sm hover:bg-sage/10 transition-colors cursor-pointer flex items-center gap-2"
+            className="min-h-11 px-5 py-2.5 text-xs uppercase tracking-wider text-sage border border-sage/40 rounded-sm hover:bg-sage/10 transition-colors cursor-pointer flex items-center gap-2"
             title="Resume recording"
           >
             <PlayIcon />
@@ -656,7 +656,7 @@ export function VoiceRecorder({ onTranscriptReady, onCancel }: VoiceRecorderProp
         {(state === "recording" || state === "paused") && (
           <button
             onClick={handleStop}
-            className="px-5 py-2.5 text-xs uppercase tracking-wider text-foreground bg-primary border border-sage/40 rounded-sm hover:bg-primary/80 transition-colors cursor-pointer flex items-center gap-2"
+            className="min-h-11 px-5 py-2.5 text-xs uppercase tracking-wider text-foreground bg-primary border border-sage/40 rounded-sm hover:bg-primary/80 transition-colors cursor-pointer flex items-center gap-2"
             title="Stop and transcribe"
           >
             <StopIcon />

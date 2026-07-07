@@ -107,14 +107,14 @@ export function MoodCharts() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 space-y-8">
       {/* Controls */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:justify-between sm:items-center">
         <h3 className="text-xl font-display text-foreground">Emotional Cadence & Patterns</h3>
         <select
           value={dateRange}
           onChange={(e) => setDateRange(Number(e.target.value) as DateRange)}
-          className="bg-card border border-border text-sm rounded-md pl-3 pr-8 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className="min-h-11 max-w-full bg-card border border-border text-sm rounded-md pl-3 pr-8 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/50"
         >
           <option value={7}>Last 7 Days</option>
           <option value={30}>Last 30 Days</option>
@@ -126,7 +126,7 @@ export function MoodCharts() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* Frequency Chart */}
-        <div className="bg-card border border-border/50 rounded-xl p-6 shadow-sm flex flex-col justify-center items-center">
+        <div className="min-w-0 overflow-hidden bg-card border border-border/50 rounded-xl p-4 sm:p-6 shadow-sm flex flex-col justify-center items-center">
           <h4 className="text-sm font-medium text-muted-foreground w-full mb-2 uppercase tracking-wider">Entry Frequency</h4>
           <p className="text-xs text-muted-foreground w-full mb-6 text-left">
             This chart tracks how often you journal over time. Consistency can reveal patterns in when you feel the most need to reflect. Use this to maintain momentum or spot periods of disengagement.
@@ -181,7 +181,7 @@ export function MoodCharts() {
         </div>
 
         {/* 2D Mood Scatter Plot */}
-        <div className="bg-card border border-border/50 rounded-xl p-6 shadow-sm flex flex-col justify-center items-center">
+        <div className="min-w-0 overflow-hidden bg-card border border-border/50 rounded-xl p-4 sm:p-6 shadow-sm flex flex-col justify-center items-center">
           <h4 className="text-sm font-medium text-muted-foreground w-full mb-2 uppercase tracking-wider">Mood Matrix</h4>
           <p className="text-xs text-muted-foreground w-full mb-6 text-left">
             Plots your entries based on emotional polarity (negative to positive) and intensity. It helps you quickly identify if you&apos;re experiencing extreme highs/lows or if your mood is generally stable.

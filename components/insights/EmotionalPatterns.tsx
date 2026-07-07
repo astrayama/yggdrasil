@@ -208,16 +208,16 @@ export function EmotionalPatterns() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="min-w-0 space-y-8">
       {/* Controls */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col items-start gap-3 sm:flex-row sm:justify-between sm:items-center">
         <h3 className="text-xl font-display text-foreground">Longitudinal Patterns</h3>
-        <div className="flex items-center gap-4">
+        <div className="flex max-w-full items-center gap-4">
 
           <select
             value={dateRange}
             onChange={(e) => setDateRange(Number(e.target.value) as DateRange)}
-            className="bg-card border border-border text-sm rounded-md pl-3 pr-8 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/50"
+            className="min-h-11 max-w-full bg-card border border-border text-sm rounded-md pl-3 pr-8 py-1.5 focus:outline-none focus:ring-2 focus:ring-primary/50"
           >
             <option value={14}>Last 14 Days</option>
             <option value={30}>Last 30 Days</option>
@@ -229,7 +229,7 @@ export function EmotionalPatterns() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Scatter Timeline Chart */}
-        <div className="lg:col-span-2 bg-card border border-border/50 rounded-xl p-6 shadow-sm flex flex-col justify-center items-center">
+        <div className="min-w-0 overflow-hidden lg:col-span-2 bg-card border border-border/50 rounded-xl p-4 sm:p-6 shadow-sm flex flex-col justify-center items-center">
           <h4 className="text-sm font-medium text-muted-foreground w-full mb-2 uppercase tracking-wider">Emotion Timeline (Intensity)</h4>
           <p className="text-xs text-muted-foreground w-full mb-6 text-left">
             Tracks individual emotion occurrences from analyzed entries over time. Identifying spikes or dips can help you correlate your feelings with life events, revealing emotional triggers and recovery periods.
@@ -304,7 +304,7 @@ export function EmotionalPatterns() {
         </div>
 
         {/* Top Themes */}
-        <div className="bg-card border border-border/50 rounded-xl p-6 shadow-sm">
+        <div className="min-w-0 bg-card border border-border/50 rounded-xl p-4 sm:p-6 shadow-sm">
           <h4 className="text-sm font-medium text-muted-foreground w-full mb-2 uppercase tracking-wider">Dominant Themes</h4>
           <p className="text-xs text-muted-foreground w-full mb-6 text-left">
             Highlights the recurring themes from your recent entries. This acts as a mirror, showing you what naturally preoccupies your mind during this timeframe.

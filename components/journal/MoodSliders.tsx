@@ -49,7 +49,7 @@ export function MoodSliders({ mood, onChange }: MoodSlidersProps) {
           {isSet && (
             <button
               onClick={handleClear}
-              className="text-xs text-foreground/50 hover:text-foreground underline cursor-pointer transition-colors"
+              className="min-h-11 px-2 text-xs text-foreground/50 hover:text-foreground underline cursor-pointer transition-colors"
             >
               Clear
             </button>

@@ -364,11 +364,11 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
     <div className="w-full max-w-4xl mx-auto flex flex-col h-full min-h-[60vh] bg-surface-2 text-foreground border border-border/60 rounded-sm shadow-md overflow-hidden">
       {linkRootId && !initialEntry && <ReflectingOnRoot rootId={linkRootId} />}
       {/* Toolbar */}
-      <div className="flex items-center gap-1.5 p-3 border-b border-border/40 bg-surface">
+      <div className="flex flex-wrap items-center gap-1.5 p-2 sm:p-3 border-b border-border/40 bg-surface">
         <button
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => handleCommand("bold")}
-          className="px-3 py-1.5 rounded-sm hover:bg-muted/30 font-bold text-sm transition-colors text-foreground/85 hover:text-foreground cursor-pointer"
+          className="min-w-11 min-h-11 px-3 py-1.5 rounded-sm hover:bg-muted/30 font-bold text-sm transition-colors text-foreground/85 hover:text-foreground cursor-pointer"
           title="Bold (Cmd+B)"
         >
           B
@@ -376,7 +376,7 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
         <button
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => handleCommand("italic")}
-          className="px-3 py-1.5 rounded-sm hover:bg-muted/30 italic text-sm transition-colors text-foreground/85 hover:text-foreground cursor-pointer"
+          className="min-w-11 min-h-11 px-3 py-1.5 rounded-sm hover:bg-muted/30 italic text-sm transition-colors text-foreground/85 hover:text-foreground cursor-pointer"
           title="Italic (Cmd+I)"
         >
           I
@@ -400,20 +400,20 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
         <button
           onMouseDown={(event) => event.preventDefault()}
           onClick={() => handleCommand("insertUnorderedList")}
-          className="px-3 py-1.5 rounded-sm hover:bg-muted/30 text-sm transition-colors text-foreground/85 hover:text-foreground flex items-center gap-1.5 cursor-pointer"
+          className="min-h-11 px-3 py-1.5 rounded-sm hover:bg-muted/30 text-sm transition-colors text-foreground/85 hover:text-foreground flex items-center gap-1.5 cursor-pointer"
           title="Bulleted List"
         >
           <span className="text-lg leading-none text-sage">•</span> List
         </button>
 
         {/* Spacer */}
-        <div className="flex-1" />
+        <div className="flex-1 min-w-2" />
 
         {/* Mic button */}
         <button
           onClick={() => setIsRecording(true)}
           disabled={isRecording}
-          className="px-3 py-1.5 rounded-sm hover:bg-sage/15 text-sm transition-colors text-sage hover:text-sage flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+          className="min-h-11 px-3 py-1.5 rounded-sm hover:bg-sage/15 text-sm transition-colors text-sage hover:text-sage flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           title="Record a voice note"
         >
           <svg
@@ -444,7 +444,7 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
         </div>
       ) : (
         <div className="flex-1 flex flex-col">
-          <div className="px-8 pt-8 pb-1 flex items-center">
+          <div className="px-4 sm:px-8 pt-6 sm:pt-8 pb-1 flex items-center">
             <input
               type="datetime-local"
               value={entryDateStr}
@@ -458,11 +458,11 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Untitled Entry"
-            className="w-full bg-transparent px-8 pt-1 pb-4 text-2xl sm:text-3xl font-display text-foreground placeholder:text-muted-foreground/40 outline-none"
+            className="w-full bg-transparent px-4 sm:px-8 pt-1 pb-4 text-2xl sm:text-3xl font-display text-foreground placeholder:text-muted-foreground/40 outline-none"
           />
           <div
             ref={editorRef}
-            className="flex-1 px-8 pb-8 outline-none overflow-y-auto text-body-lg leading-relaxed text-foreground bg-transparent
+            className="flex-1 min-h-48 px-4 sm:px-8 pb-6 sm:pb-8 outline-none overflow-y-auto text-body-lg leading-relaxed text-foreground bg-transparent
                        empty:before:content-[attr(data-placeholder)] empty:before:text-foreground/30 empty:before:pointer-events-none empty:before:block
                        [&_h1]:my-3 [&_h1]:font-display [&_h1]:text-4xl [&_h1]:font-semibold [&_h1]:leading-tight
                        [&_h2]:my-2 [&_h2]:font-display [&_h2]:text-2xl [&_h2]:font-semibold [&_h2]:leading-snug
@@ -484,8 +484,8 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
       </div>
 
       {/* Footer */}
-      <div className="p-4 border-t border-border/40 flex justify-between items-center bg-surface">
-        <div className="text-sm">
+      <div className="p-3 sm:p-4 border-t border-border/40 flex flex-wrap justify-between items-center gap-3 bg-surface">
+        <div className="min-w-0 text-sm">
           {pendingEntryId && <ThinkingIndicator entryId={pendingEntryId} />}
           {saveStatus === 'error' && (
             <span className="text-red-400 italic">Failed to save. Please try again.</span>
@@ -494,7 +494,7 @@ export function Composer({ initialEntry, onSave, linkRootId }: ComposerProps = {
         <button
           onClick={handleSave}
           disabled={isSaving || !content.trim()}
-          className="px-6 py-2.5 bg-primary text-foreground border border-gold/40 rounded-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 font-medium text-xs tracking-wider uppercase relative pl-8 cursor-pointer overflow-hidden group"
+          className="min-h-11 ml-auto px-6 py-2.5 bg-primary text-foreground border border-gold/40 rounded-sm hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 font-medium text-xs tracking-wider uppercase relative pl-8 cursor-pointer overflow-hidden group"
         >
           {/* Subtle gold left-edge line on hover */}
           <span className="absolute left-0 top-1 bottom-1 w-[2.5px] bg-gold scale-y-0 group-hover:scale-y-100 transition-transform duration-300 origin-center" />
