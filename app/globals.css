@@ -235,6 +235,63 @@
   50% { transform: translateY(7px); }
 }
 
+/* ── Yggi homepage (v2) ─────────────────────────────────────────────────
+   Breathable ambient motion for the marketing page: the wordmark breathes,
+   the hero glow swells, graph nodes pulse, the "live" pill and cross-links
+   shimmer, the scroll cue falls, and the halo rings expand. */
+@keyframes yggi-glow {
+  0%, 100% { opacity: 0.45; transform: translate(-50%, -50%) scale(1); }
+  50%      { opacity: 0.85; transform: translate(-50%, -50%) scale(1.12); }
+}
+@keyframes yggi-node {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.16); }
+}
+@keyframes yggi-shimmer {
+  0%, 100% { opacity: 0.3; }
+  50%      { opacity: 0.85; }
+}
+@keyframes yggi-cue {
+  0%   { transform: translateY(0);    opacity: 0.9; }
+  70%  { transform: translateY(14px); opacity: 0.15; }
+  100% { transform: translateY(14px); opacity: 0; }
+}
+@keyframes yggi-ring {
+  0%, 100% { opacity: 0.25; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(1.06); }
+}
+
+/* Scroll-reveal wrapper (see components/marketing/Reveal.tsx) */
+.reveal {
+  opacity: 0;
+  transform: translateY(18px);
+  transition: opacity 700ms var(--ease-gentle), transform 700ms var(--ease-gentle);
+  will-change: opacity, transform;
+}
+.reveal.in {
+  opacity: 1;
+  transform: none;
+}
+
+/* Yggi nav: text links collapse on small screens; the CTA always shows. */
+.yggi-nav-links {
+  display: none;
+}
+@media (min-width: 720px) {
+  .yggi-nav-links {
+    display: flex;
+    align-items: center;
+    gap: 26px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .yggi-home *,
+  .yggi-home *::before,
+  .yggi-home *::after { animation: none !important; }
+}
+
 /* ── Onboarding: Yggi's sacred-geometry presence ──────────────────────
    Yggi is a formless guide that "breathes" while present (XPE-ONBRD).
    A gentle 4s scale/opacity swell — never a spinner, never a snap. */
