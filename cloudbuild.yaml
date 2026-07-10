@@ -1,0 +1,77 @@
+steps:
+  # Step 1: Build with Docker (reproducible build)
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - 'us-docker.pkg.dev/$PROJECT_ID/docker/yggdrasil-web:$SHORT_SHA'
+      - '-t'
+      - 'us-docker.pkg.dev/$PROJECT_ID/docker/yggdrasil-web:latest'
+      - '--build-arg'
+      - 'NODE_ENV=production'
+      - '.'
+
+  # Step 2: Push to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '--all-tags'
+      - 'us-docker.pkg.dev/$PROJECT_ID/docker/yggdrasil-web'
+
+  # Step 3: Generate SLSA Provenance (automatic with Cloud Build)
+
+  # Step 4: Sign with Cosign (Cloud KMS)
+  - name: 'gcr.io/projectsigstore/cosign:v2'
+    args:
+      - 'sign'
+      - '--key'
+      - 'kms://projects/$PROJECT_ID/locations/global/keyRings/attestor-keyring/cryptoKeys/attestor-key'
+      - 'us-docker.pkg.dev/$PROJECT_ID/docker/yggdrasil-web@$DIGEST'
+    env:
+      - 'COSIGN_YES=true'
+
+  # Step 5: Create Binary Authorization Attestation
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        DIGEST=$(gcloud artifacts docker images describe \
+          us-docker.pkg.dev/$PROJECT_ID/docker/yggdrasil-web:$SHORT_SHA \
+          --format="value(image_summary.digest)")
+
+        gcloud container binauthz attestations create \
+          --project=$PROJECT_ID \
+          --artifact-url=us-docker.pkg.dev/$PROJECT_ID/docker/yggdrasil-web@$DIGEST \
+          --attestor=projects/$PROJECT_ID/attestors/build-attestor \
+          --signature-file=/dev/stdin <<< "$(cosign sign-blob \
+            --key=kms://projects/$PROJECT_ID/locations/global/keyRings/attestor-keyring/cryptoKeys/attestor-key \
+            --output-signature - \
+            us-docker.pkg.dev/$PROJECT_ID/docker/yggdrasil-web@$DIGEST 2>/dev/null)"
+
+  # Step 6: Deploy to Cloud Deploy (dev target)
+  - name: 'gcr.io/cloud-builders/gcloud'
+    entrypoint: bash
+    args:
+      - -c
+      - |
+        gcloud deploy releases create release-$SHORT_SHA-$(date +%s) \
+          --delivery-pipeline=yggdrasil-pipeline \
+          --region=$REGION \
+          --source=skaffold.yaml \
+          --images=us-docker.pkg.dev/$PROJECT_ID/docker/yggdrasil-web=us-docker.pkg.dev/$PROJECT_ID/docker/yggdrasil-web:$SHORT_SHA \
+          --annotations=git-commit=$COMMIT_SHA,git-ref=$BRANCH_NAME
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+  workerPool: 'projects/$PROJECT_ID/locations/$REGION/workerPools/cloud-build-pool'
+
+substitutions:
+  _REGION: us-central1
+
+timeout: '1200s'
+
+images:
+  - 'us-docker.pkg.dev/$PROJECT_ID/docker/yggdrasil-web:$SHORT_SHA'
+  - 'us-docker.pkg.dev/$PROJECT_ID/docker/yggdrasil-web:latest'

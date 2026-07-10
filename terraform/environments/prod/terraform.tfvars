@@ -1,0 +1,6 @@
+project_id     = "yggdrasil-prod"
+region         = "us-central1"
+shared_project_id = "yggdrasil-shared"
+container_image = "us-docker.pkg.dev/yggdrasil-shared/docker/yggdrasil-web:latest"
+alert_email    = ""
+domain         = "yggdrasil.app"

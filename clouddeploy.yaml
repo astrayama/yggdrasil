@@ -1,0 +1,59 @@
+apiVersion: deploy.cloud.google.com/v1
+kind: DeliveryPipeline
+metadata:
+  name: yggdrasil-pipeline
+  annotations:
+    description: "Yggdrasil progressive delivery pipeline"
+spec:
+  serialPipeline:
+    stages:
+      - targetId: dev
+        profiles: []
+        strategy:
+          standard:
+            verify: false
+        deployParameters:
+          - name: service_name
+            value: yggdrasil-web
+          - name: region
+            value: us-central1
+
+      - targetId: prod
+        profiles: []
+        strategy:
+          canary:
+            runtimeConfig:
+              cloudRun:
+                automaticTrafficControl: true
+            canaryDeployment:
+              percentages: [5, 25, 50]
+              verify: true
+            predeploy:
+              steps:
+                - scriptId: pre-deploy-check
+            postdeploy:
+              steps:
+                - scriptId: post-deploy-verify
+
+---
+apiVersion: deploy.cloud.google.com/v1
+kind: Target
+metadata:
+  name: dev
+  annotations:
+    description: "Development environment"
+spec:
+  run:
+    location: projects/yggdrasil-dev/locations/us-central1
+
+---
+apiVersion: deploy.cloud.google.com/v1
+kind: Target
+metadata:
+  name: prod
+  annotations:
+    description: "Production environment"
+spec:
+  run:
+    location: projects/yggdrasil-prod/locations/us-central1
+  requireApproval: true
