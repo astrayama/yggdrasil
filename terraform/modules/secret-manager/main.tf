@@ -9,14 +9,20 @@ resource "google_secret_manager_secret" "default" {
     auto {}
   }
 
-  rotation {
-    next_rotation_time = timeadd(timestamp(), "${var.rotation_period_days * 24}h")
-    rotation_period    = "${var.rotation_period_days * 24}h"
+  # Rotation requires a configured rotator (e.g. a Cloud Function). It is opt-in: set
+  # rotation_period_days > 0 AND rotation_function together, otherwise rotation is omitted.
+  dynamic "rotation" {
+    for_each = var.rotation_period_days > 0 && var.rotation_function != "" ? [1] : []
+    content {
+      rotation_period    = "${var.rotation_period_days * 24}s"
+      next_rotation_time = timeadd(timestamp(), "${var.rotation_period_days * 24}h")
+      rotation_function  = var.rotation_function
+    }
   }
 }
 
 resource "google_secret_manager_secret_version" "default" {
-  for_each = var.secrets
+  for_each = { for k, v in var.secrets : k => v if v != "" }
 
   secret      = google_secret_manager_secret.default[each.key].id
   secret_data = each.value

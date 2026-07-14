@@ -10,9 +10,15 @@ variable "secrets" {
 }
 
 variable "rotation_period_days" {
-  description = "Secret rotation period in days"
+  description = "Secret rotation period in days. Set to 0 to disable rotation (default). When > 0 you must also set rotation_function."
   type        = number
-  default     = 90
+  default     = 0
+}
+
+variable "rotation_function" {
+  description = "Fully-qualified Cloud Function resource name to act as the rotation rotator. Required when rotation_period_days > 0."
+  type        = string
+  default     = ""
 }
 
 variable "service_account_emails" {
