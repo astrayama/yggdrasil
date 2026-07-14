@@ -1,7 +1,7 @@
 variable "project_id" {
-  description = "Shared project ID"
+  description = "Control-plane (prod) project ID. CI services (Artifact Registry, Cloud Build, Cloud Deploy, KMS, Binary Authz, WIF) live here."
   type        = string
-  default     = "yggdrasil-shared"
+  default     = "yggdrasil-prod"
 }
 
 variable "region" {
@@ -11,32 +11,37 @@ variable "region" {
 }
 
 variable "github_org" {
-  description = "GitHub organization"
+  description = "GitHub organization or username"
   type        = string
   default     = "piero"
 }
 
 variable "github_repos" {
-  description = "GitHub repositories"
+  description = "GitHub repositories allowed to assume the WIF SA"
   type        = list(string)
   default     = ["yggdrasil"]
 }
 
 variable "dev_project_id" {
-  description = "Dev project ID"
+  description = "Dev app project ID (Cloud Deploy target)"
   type        = string
   default     = "yggdrasil-dev"
 }
 
 variable "prod_project_id" {
-  description = "Prod project ID"
+  description = "Prod app project ID (Cloud Deploy target). Same as project_id."
   type        = string
   default     = "yggdrasil-prod"
 }
 
-variable "secret_values" {
-  description = "Secret values (set via terraform.tfvars or environment)"
-  type        = map(string)
-  sensitive   = true
-  default     = {}
+variable "dev_runtime_sa_email" {
+  description = "Dev Cloud Run runtime service account email. Granted Artifact Registry reader so the dev service can pull images."
+  type        = string
+  default     = "yggdrasil-web@yggdrasil-dev.iam.gserviceaccount.com"
+}
+
+variable "prod_runtime_sa_email" {
+  description = "Prod Cloud Run runtime service account email."
+  type        = string
+  default     = "yggdrasil-web@yggdrasil-prod.iam.gserviceaccount.com"
 }

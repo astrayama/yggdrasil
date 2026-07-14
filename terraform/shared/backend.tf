@@ -1,6 +1,6 @@
 terraform {
   backend "gcs" {
-    bucket = "yggdrasil-shared-tf-state"
-    prefix = "shared"
+    bucket = "yggdrasil-prod-tf-state"
+    prefix = "control-plane"
   }
 }

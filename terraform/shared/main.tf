@@ -8,18 +8,19 @@ provider "google-beta" {
   region  = var.region
 }
 
+data "google_project" "current" {
+  project_id = var.project_id
+}
+
 # ============================================================
-# Enable required APIs
+# Enable required APIs (CI control plane)
 # ============================================================
 resource "google_project_service" "apis" {
   for_each = toset([
     "artifactregistry.googleapis.com",
     "cloudbuild.googleapis.com",
     "clouddeploy.googleapis.com",
-    "cloudfunctions.googleapis.com",
     "run.googleapis.com",
-    "firestore.googleapis.com",
-    "storage.googleapis.com",
     "secretmanager.googleapis.com",
     "binaryauthorization.googleapis.com",
     "containeranalysis.googleapis.com",
@@ -27,22 +28,22 @@ resource "google_project_service" "apis" {
     "logging.googleapis.com",
     "cloudkms.googleapis.com",
     "iam.googleapis.com",
+    "iamcredentials.googleapis.com",
     "sts.googleapis.com",
     "cloudresourcemanager.googleapis.com",
   ])
 
-  project = var.project_id
-  service = each.value
-
+  project                    = var.project_id
+  service                    = each.value
   disable_dependent_services = false
   disable_on_destroy         = false
 }
 
 # ============================================================
-# Artifact Registry (shared across all environments)
+# Artifact Registry (single source of images for dev + prod)
 # ============================================================
 module "artifact_registry" {
-  source = "../../modules/artifact-registry"
+  source = "../modules/artifact-registry"
 
   project_id = var.project_id
   region     = var.region
@@ -53,43 +54,45 @@ module "artifact_registry" {
   depends_on = [google_project_service.apis]
 }
 
-# ============================================================
-# Cloud Build Worker Pool
-# ============================================================
-module "cloud_build" {
-  source = "../../modules/cloud-build"
+# Grant both runtime SAs reader access to Artifact Registry so Cloud Run in dev + prod can pull.
+# (Prod SA lives in this project; dev SA lives in yggdrasil-dev — cross-project IAM.)
+resource "google_project_iam_member" "runtime_ar_readers" {
+  for_each = toset([var.dev_runtime_sa_email, var.prod_runtime_sa_email])
 
-  project_id      = var.project_id
-  region          = var.region
-  worker_pool_name = "cloud-build-pool"
-  machine_type    = "E2_MEDIUM"
+  project = var.project_id
+  role    = "roles/artifactregistry.reader"
+  member  = "serviceAccount:${each.value}"
 
-  depends_on = [google_project_service.apis]
+  depends_on = [module.artifact_registry]
 }
 
 # ============================================================
-# Cloud Deploy Pipeline
+# Cloud Deploy delivery pipeline (optional, for future prod canary)
 # ============================================================
-module "cloud_deploy" {
-  source = "../../modules/cloud-deploy"
+# Disabled in the default flow: dev + prod both deploy directly via Cloud Build
+# (see cloudbuild.yaml). Re-enable by uncommenting and adding a prod skaffold source.
+# module "cloud_deploy" {
+#   source = "../modules/cloud-deploy"
+#   ...
+# }
 
-  project_id     = var.project_id
-  region         = var.region
-  pipeline_name  = "yggdrasil-pipeline"
-  dev_project_id = var.dev_project_id
-  prod_project_id = var.prod_project_id
+# Cloud Deploy's own service agent (kept for the optional canary path).
+locals {
+  clouddeploy_sa = "service-${data.google_project.current.number}@gcp-sa-clouddeploy.iam.gserviceaccount.com"
+}
 
-  canary_percentages = [5, 25, 50]
-  service_name       = "yggdrasil-web"
-
-  depends_on = [google_project_service.apis]
+resource "google_project_iam_member" "clouddeploy_prod_run_admin" {
+  count   = 0 # disabled until Cloud Deploy is wired
+  project = var.project_id
+  role    = "roles/run.admin"
+  member  = "serviceAccount:${local.clouddeploy_sa}"
 }
 
 # ============================================================
-# Binary Authorization + Cloud KMS
+# Binary Authorization + Cloud KMS (DRYRUN until first signed release validated)
 # ============================================================
 module "binary_authz" {
-  source = "../../modules/binary-authz"
+  source = "../modules/binary-authz"
 
   project_id     = var.project_id
   attestor_name  = "build-attestor"
@@ -97,7 +100,7 @@ module "binary_authz" {
   kms_keyring_id = "attestor-keyring"
   kms_key_id     = "attestor-key"
 
-  enforcement_mode = "ENFORCED_BLOCK_AND_AUDIT_LOG"
+  enforcement_mode = "DRY_RUN_AUDIT_LOG_ONLY"
 
   allowed_registries = [
     "us-docker.pkg.dev/${var.project_id}/docker/*",
@@ -107,49 +110,25 @@ module "binary_authz" {
 }
 
 # ============================================================
-# Secret Manager (shared secrets)
-# ============================================================
-module "secret_manager" {
-  source = "../../modules/secret-manager"
-
-  project_id = var.project_id
-  secrets    = var.secret_values
-
-  rotation_period_days = 90
-
-  service_account_emails = [
-    "github-deployer@${var.project_id}.iam.gserviceaccount.com",
-  ]
-
-  labels = {
-    managed_by = "terraform"
-    project    = "shared"
-  }
-
-  depends_on = [google_project_service.apis]
-}
-
-# ============================================================
-# Workload Identity Federation
+# Workload Identity Federation (GitHub Actions OIDC)
 # ============================================================
 module "workload_identity" {
-  source = "../../modules/workload-identity"
+  source = "../modules/workload-identity"
 
-  project_id = var.project_id
-  github_org = var.github_org
-  github_repos = var.github_repos
-
-  pool_id    = "github-actions-pool"
-  provider_id = "github-provider"
+  project_id    = var.project_id
+  github_org    = var.github_org
+  github_repos  = var.github_repos
+  pool_id       = "github-actions-pool"
+  provider_id   = "github-provider"
 
   depends_on = [google_project_service.apis]
 }
 
 # ============================================================
-# IAM Service Accounts
+# CI service accounts
 # ============================================================
 module "iam" {
-  source = "../../modules/iam"
+  source = "../modules/iam"
 
   project_id = var.project_id
 
@@ -157,27 +136,31 @@ module "iam" {
     {
       account_id   = "github-deployer"
       display_name = "GitHub Actions Deployer"
-      description  = "Used by GitHub Actions via WIF to deploy to Cloud Deploy"
+      description  = "Assumed by GitHub Actions via WIF to trigger Cloud Build and Terraform"
       roles = [
+        "roles/cloudbuild.builds.editor",
         "roles/clouddeploy.releaser",
         "roles/clouddeploy.admin",
         "roles/run.admin",
         "roles/iam.serviceAccountUser",
         "roles/artifactregistry.writer",
         "roles/secretmanager.secretAccessor",
-        "roles/storage.objectViewer",
-        "roles/binaryauthorization.attestorsVerifier",
+        "roles/storage.objectAdmin",
+        "roles/binaryauthorization.attestorsViewer",
       ]
     },
     {
       account_id   = "cloud-build-deployer"
       display_name = "Cloud Build Deployer"
-      description  = "Used by Cloud Build for deploying containers"
+      description  = "Used by Cloud Build to create Cloud Deploy releases and sign images"
       roles = [
         "roles/clouddeploy.releaser",
         "roles/run.admin",
+        "roles/iam.serviceAccountUser",
         "roles/artifactregistry.writer",
         "roles/secretmanager.secretAccessor",
+        "roles/cloudkms.signerVerifier",
+        "roles/binaryauthorization.attestorsAdmin",
       ]
     },
   ]
@@ -187,4 +170,32 @@ module "iam" {
   github_repos     = var.github_repos
 
   depends_on = [module.workload_identity]
+}
+
+# Cloud Build's runtime service account (the default Compute Engine builder) needs to push images,
+# sign with KMS, create releases, and deploy. Bind the project-level Cloud Build SA.
+locals {
+  cloudbuild_sa = "${data.google_project.current.number}@cloudbuild.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "cloudbuild_perms" {
+  for_each = toset([
+    "roles/artifactregistry.writer",
+    "roles/clouddeploy.releaser",
+    "roles/run.admin",
+    "roles/iam.serviceAccountUser",
+    "roles/cloudkms.signerVerifier",
+    "roles/binaryauthorization.attestorsAdmin",
+    "roles/logging.logWriter",
+    # Allow Cloud Build to deploy Firebase Cloud Functions + rules in the prod project
+    "roles/cloudfunctions.admin",
+    "roles/firebase.admin",
+    "roles/serviceusage.serviceUsageConsumer",
+  ])
+
+  project = var.project_id
+  role    = each.value
+  member  = "serviceAccount:${local.cloudbuild_sa}"
+
+  depends_on = [module.artifact_registry, module.binary_authz]
 }
