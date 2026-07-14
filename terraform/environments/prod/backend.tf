@@ -1,6 +1,6 @@
 terraform {
   backend "gcs" {
-    bucket = "yggdrasil-shared-tf-state"
+    bucket = "yggdrasil-prod-tf-state"
     prefix = "environments/prod"
   }
 }

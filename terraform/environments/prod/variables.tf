@@ -1,5 +1,5 @@
 variable "project_id" {
-  description = "Prod project ID"
+  description = "Prod project ID (also hosts the CI control plane)"
   type        = string
   default     = "yggdrasil-prod"
 }
@@ -10,26 +10,21 @@ variable "region" {
   default     = "us-central1"
 }
 
-variable "shared_project_id" {
-  description = "Shared project ID"
+variable "artifact_registry_image" {
+  description = "Artifact Registry image used by Cloud Run (informational; the service spec is owned by cloudrun-service.yaml, rendered by Cloud Build)."
   type        = string
-  default     = "yggdrasil-shared"
+  default     = "us-docker.pkg.dev/yggdrasil-prod/docker/yggdrasil-web"
 }
 
-variable "container_image" {
-  description = "Container image URL"
-  type        = string
-  default     = "us-docker.pkg.dev/yggdrasil-shared/docker/yggdrasil-web:latest"
+variable "secret_values" {
+  description = "Map of Secret Manager secret name → value for the prod environment. Empty values create the secret shell only."
+  type        = map(string)
+  sensitive   = true
+  default     = {}
 }
 
 variable "alert_email" {
   description = "Alert notification email"
   type        = string
   default     = ""
-}
-
-variable "domain" {
-  description = "Custom domain for prod"
-  type        = string
-  default     = "yggdrasil.app"
 }
