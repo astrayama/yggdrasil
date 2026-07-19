@@ -191,11 +191,42 @@ export function MarketingHome() {
   const rootRef = useRef<HTMLDivElement>(null);
   const reducedRef = useRef(false);
   const scrollRafRef = useRef(0);
+  const [beganPractice,setBeganPractice]=useState(false);
 
-  // Signed-in users go straight to the app (the old root redirect, gated by session).
+  /*// Signed-in users go straight to the app (the old root redirect, gated by session).
   useEffect(() => {
-    if (!loading && user) router.replace('/journal');
+    //REMOVED
+    if (!loading && user) router.replace('/entries');
   }, [loading, user, router]);
+*/
+
+  //function to change button text
+  const handleButtonClick = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  // if used already on waitlist, pressing button again redirects to sign-up page
+  if (beganPractice) {
+    router.push('/signup'); // Change this to your exact signup route if it's different
+    return;
+  }
+
+  // ensuring email is valid
+  if (!email || !email.includes('@')) {
+    setSubscribeError("Please enter a valid email address.");
+    return;
+  }
+
+  setSaving(true);
+  setSubscribeError(null);
+
+  try {
+    setBeganPractice(true);
+  } catch (err) {
+    setSubscribeError("Something went wrong. Please try again.");
+  } finally {
+    setSaving(false);
+  }
+};
 
   useEffect(() => {
     reducedRef.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -847,7 +878,11 @@ export function MarketingHome() {
               e.preventDefault();
               if (saving) return;
               setSubscribeError(null);
-              if (!email.trim()) {
+              //if (beganPractice) {
+               // router.push(`/signup?email=${encodeURIComponent(email.trim())}`);
+              //  return;
+              //   }
+              if (!email.trim()  || !email.includes('@')) {
                 router.push('/signup');
                 return;
               }
@@ -867,20 +902,25 @@ export function MarketingHome() {
                   }
                   // Capture hiccups shouldn't block the visitor from signing up.
                 }
-                router.push(`/signup?email=${encodeURIComponent(email.trim())}`);
+                //router.push(`/signup?email=${encodeURIComponent(email.trim())}`);
+                setBeganPractice(true);
+
               } catch {
-                router.push(`/signup?email=${encodeURIComponent(email.trim())}`);
+                //router.push(`/signup?email=${encodeURIComponent(email.trim())}`);
+                setBeganPractice(true);
+              } finally {
+                setSaving(false);
               }
             }}
             style={{ display: 'flex', gap: 12, justifyContent: 'center', flexWrap: 'wrap', maxWidth: 460, margin: '0 auto' }}
           >
-            <Input
+            {!beganPractice && ( <Input
               type="email"
               placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               containerStyle={{ flex: 1, minWidth: 220 }}
-            />
+            />)}
             <input
               type="text"
               name="website"
@@ -891,8 +931,12 @@ export function MarketingHome() {
               aria-hidden="true"
               style={{ position: 'absolute', left: -9999, width: 1, height: 1, opacity: 0 }}
             />
-            <Button size="lg" type="submit" disabled={saving}>
-              {saving ? 'One moment…' : 'Begin your practice'}
+            <Button size="lg"  type={beganPractice ? "button" : "submit"} disabled={saving}  onClick={() => {
+      if (beganPractice) {
+        router.push(`/signup?email=${encodeURIComponent(email.trim())}`);
+      }
+    }}>
+              {saving ? 'One moment…' :beganPractice? 'Be a Beta Tester' : 'Begin your practice'}
             </Button>
           </form>
           {subscribeError && (
@@ -900,6 +944,11 @@ export function MarketingHome() {
               {subscribeError}
             </p>
           )}
+          {beganPractice && (
+             <p style={{ color: 'rgba(232,224,208,0.72)', fontSize: '14px', textAlign: 'center', marginTop:14}}>
+               Congrats!You have been added to the waitlist!
+    </p>
+  )}
           <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'rgba(232,224,208,0.45)', marginTop: 16 }}>
             No credit card · Your entries stay yours
           </p>
