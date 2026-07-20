@@ -34,7 +34,7 @@ def kernel(a, b):
     return float(np.abs(np.vdot(encode(a), encode(b)))**2)
 
 
-@app.post("/kernel/")
+@app.post("/kernel")
 async def compute_kernel_score(req: KernelRequest):
     return KernelResponse(similarity_score=kernel(req.a, req.b))
 
