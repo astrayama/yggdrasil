@@ -15,7 +15,7 @@ class KernelRequest(BaseModel):
 
 
 class KernelResponse(BaseModel):
-    similarity: float
+    similarity_score: float
 
 
 def feature_map(x):
