@@ -47,3 +47,7 @@ functions/lib
 # Committed env templates only — never the real .env.production
 !.env.production.example
 !functions/.env.production.example
+
+# python (cirq-service)
+cirq-service/__pycache__/
+cirq-service/.venv/
