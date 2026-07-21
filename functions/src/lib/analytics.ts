@@ -16,6 +16,21 @@ interface SendAnalyticsEventOptions {
   eventParams?: AnalyticsEventParams;
 }
 
+type HiddenConnectionsComputationPath = 'cirq' | 'fallback_knn';
+
+export interface HiddenConnectionsComputationLog {
+  userId: string;
+  path: HiddenConnectionsComputationPath;
+  candidateCount: number;
+  storedCount: number;
+  entryCount: number;
+  computedAt: string;
+  source: string;
+  runId?: string;
+  maxCandidatePairs?: number;
+  maxStoredConnections?: number;
+}
+
 const isAnalyticsDebug = process.env.ANALYTICS_DEBUG === 'true';
 const SYSTEM_CLIENT_ID = '51b94feb-583d-425d-9adf-a209a1f5ec42';
 
@@ -144,16 +159,64 @@ export async function logBranchActionsGenerated(
 
 export async function logHiddenConnectionsComputed(
   userId: string,
-  path: 'cirq' | 'fallback_knn',
+  path: HiddenConnectionsComputationPath,
   count: number
 ): Promise<void> {
-  await sendAnalyticsEvent('hidden_connections_computation', {
+  await logHiddenConnectionsComputation({
     userId,
+    path,
+    candidateCount: count,
+    storedCount: count,
+    entryCount: 0,
+    computedAt: new Date().toISOString(),
+    source: 'computeHiddenConnections',
+  });
+}
+
+export async function logHiddenConnectionsComputation(
+  params: HiddenConnectionsComputationLog
+): Promise<void> {
+  const eventId = params.runId
+    ? `hidden_connections_${params.runId}_${params.userId}`
+    : `hidden_connections_${params.userId}_${params.computedAt}`;
+
+  await sendAnalyticsEvent('hidden_connections_computation', {
+    userId: params.userId,
     eventParams: {
-      event_id: `hidden_connections_${path}_${count}`,
-      path,
-      count,
+      event_id: eventId,
+      userId: params.userId,
+      path: params.path,
+      candidateCount: params.candidateCount,
+      storedCount: params.storedCount,
+      entryCount: params.entryCount,
+      computedAt: params.computedAt,
+      source: params.source,
+      count: params.storedCount,
+      ...(params.maxCandidatePairs === undefined ? {} : { maxCandidatePairs: params.maxCandidatePairs }),
+      ...(params.maxStoredConnections === undefined ? {} : { maxStoredConnections: params.maxStoredConnections }),
     },
+  });
+
+  const computedAtDate = new Date(params.computedAt);
+  const computedAt = Number.isNaN(computedAtDate.getTime())
+    ? admin.firestore.FieldValue.serverTimestamp()
+    : admin.firestore.Timestamp.fromDate(computedAtDate);
+
+  await admin.firestore().collection('opsLogs').add({
+    feature: 'hidden_connections',
+    eventName: 'hidden_connections_computation',
+    status: 'success',
+    userId: params.userId,
+    path: params.path,
+    candidateCount: params.candidateCount,
+    storedCount: params.storedCount,
+    entryCount: params.entryCount,
+    computedAt,
+    timestamp: admin.firestore.FieldValue.serverTimestamp(),
+    source: params.source,
+    runId: params.runId ?? null,
+    maxCandidatePairs: params.maxCandidatePairs ?? null,
+    maxStoredConnections: params.maxStoredConnections ?? null,
   });
 }
 

@@ -2,6 +2,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import * as admin from 'firebase-admin';
 import * as logger from 'firebase-functions/logger';
 import { findNearestEntries } from './lib/vectorSearch';
+import { logHiddenConnectionsComputation } from './lib/analytics';
 
 // XPE-HC-03 tuning defaults. These are intentionally conservative until real
 // usage data answers the open PRD questions around minimum corpus size, noisy
@@ -62,8 +63,9 @@ export const nightlyHiddenConnectionsBatch = onSchedule(
     timeoutSeconds: 540,
     memory: '512MiB',
   },
-  async () => {
+  async (event) => {
     const db = admin.firestore();
+    const runId = event.scheduleTime ?? new Date().toISOString();
     const userIds = await getEligibleUserIds(db);
 
     logger.info('[hiddenConnectionsBatch] Starting nightly run', {
@@ -80,7 +82,7 @@ export const nightlyHiddenConnectionsBatch = onSchedule(
 
     for (const userId of userIds) {
       try {
-        const result = await computeForUser(db, userId);
+        const result = await computeForUser(db, userId, runId);
         processedUsers += 1;
         storedConnections += result.storedCount;
       } catch (error) {
@@ -116,7 +118,8 @@ async function getEligibleUserIds(
 
 async function computeForUser(
   db: admin.firestore.Firestore,
-  userId: string
+  userId: string,
+  runId: string
 ): Promise<{ storedCount: number }> {
   const entries = await loadEntriesWithEmbeddings(db, userId);
 
@@ -133,6 +136,18 @@ async function computeForUser(
 
   if (candidatePairs.length === 0) {
     logger.info('[hiddenConnectionsBatch] No KNN candidates found', { userId });
+    await logHiddenConnectionsComputation({
+      userId,
+      path: 'fallback_knn',
+      candidateCount: 0,
+      storedCount: 0,
+      entryCount: entries.length,
+      computedAt: new Date().toISOString(),
+      source: 'nightlyHiddenConnectionsBatch',
+      runId,
+      maxCandidatePairs: MAX_CANDIDATE_PAIRS,
+      maxStoredConnections: MAX_STORED_CONNECTIONS,
+    });
     return { storedCount: 0 };
   }
 
@@ -146,13 +161,31 @@ async function computeForUser(
     .slice(0, MAX_STORED_CONNECTIONS);
 
   await storeConnections(db, userId, connectionsToStore);
+  const computationPath: HiddenConnectionPath = connectionsToStore.some(
+    (connection) => connection.path === 'cirq'
+  )
+    ? 'cirq'
+    : 'fallback_knn';
+
+  await logHiddenConnectionsComputation({
+    userId,
+    path: computationPath,
+    candidateCount: candidatePairs.length,
+    storedCount: connectionsToStore.length,
+    entryCount: entries.length,
+    computedAt: new Date().toISOString(),
+    source: 'nightlyHiddenConnectionsBatch',
+    runId,
+    maxCandidatePairs: MAX_CANDIDATE_PAIRS,
+    maxStoredConnections: MAX_STORED_CONNECTIONS,
+  });
 
   logger.info('[hiddenConnectionsBatch] User computation finished', {
     userId,
     entryCount: entries.length,
     candidateCount: candidatePairs.length,
     storedCount: connectionsToStore.length,
-    usedCirq: connectionsToStore.some((connection) => connection.path === 'cirq'),
+    path: computationPath,
   });
 
   return { storedCount: connectionsToStore.length };
