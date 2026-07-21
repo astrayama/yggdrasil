@@ -6,6 +6,7 @@ admin.initializeApp();
 export { analyzeEntry } from './gemini/analyzeEntry';
 export { transcribeAudio } from './gemini/transcribeAudio';
 export { computeHiddenConnections } from './insights/hiddenConnections';
+export { nightlyHiddenConnectionsBatch } from './hiddenConnectionsBatch';
 export { yggiChat } from './yggi/chat';
 export { onRootWrite } from './roots/onRootWrite';
 export { generateBranchActions } from './roots/generateBranchActions';
