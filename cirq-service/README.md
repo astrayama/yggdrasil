@@ -55,6 +55,41 @@ curl -X POST http://localhost:8080/kernel \
 
 Invalid vectors return HTTP `422`. Both vectors must contain exactly 8 finite numeric values.
 
+## PCA Reduction
+
+XPE-HC-02 adds reusable PCA helpers in `app/pca.py` for reducing Gemini journal embeddings from 768 dimensions to 8 dimensions before Cirq encoding.
+
+PCA is intentionally fitted per user/corpus. Future batch jobs should pass one user's embeddings at a time and should not reuse a model across users. This keeps the reduced space local to the user's own journal history.
+
+The helper:
+
+- validates that every embedding is exactly 768 finite numeric values
+- requires at least 8 embeddings before fitting 8 PCA components
+- fits `sklearn.decomposition.PCA(n_components=8)` on the supplied corpus
+- returns raw 8D PCA vectors
+- normalizes those 8D vectors into Cirq `ry()` rotation angles in `[-pi, pi]`
+- returns the per-component explained variance ratio and total explained variance
+- reports whether a refit is recommended as the corpus grows
+
+40-65% variance retention is a reasonable early expectation for this feature, but the actual total explained variance depends heavily on the size and quality of a user's corpus. Small or repetitive corpora may behave very differently.
+
+Example helper usage:
+
+```python
+from app.pca import reduce_embeddings_for_cirq
+
+result = reduce_embeddings_for_cirq(
+    user_embeddings,
+    previous_fit_corpus_size=80,
+)
+
+angle_vectors = result.angle_vectors
+total_variance = result.total_explained_variance
+needs_refit = result.refit_recommended
+```
+
+Refit recommendation is intentionally lightweight until persistence is added. It returns `True` when there is no previous fit size, when the previous fit was below the minimum corpus size, or when the corpus has grown by at least the greater of 10 embeddings or 25%.
+
 ## Run Locally
 
 From this directory:
@@ -66,6 +101,12 @@ pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
 ```
 
+Run PCA tests:
+
+```bash
+pytest
+```
+
 On Windows PowerShell:
 
 ```powershell
@@ -73,6 +114,12 @@ python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 uvicorn app.main:app --host 0.0.0.0 --port 8080 --reload
+```
+
+Run PCA tests:
+
+```powershell
+pytest
 ```
 
 ## Docker
