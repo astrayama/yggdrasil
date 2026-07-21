@@ -55,6 +55,35 @@ curl -X POST http://localhost:8080/kernel \
 
 Invalid vectors return HTTP `422`. Both vectors must contain exactly 8 finite numeric values.
 
+### `POST /reduce`
+
+Internal helper endpoint used by the nightly Hidden Connections batch. It fits PCA on one supplied user corpus and returns per-entry 8D PCA vectors plus normalized Cirq angle vectors. The endpoint expects entries from a single user/corpus; do not mix users in one request.
+
+Request:
+
+```json
+{
+  "entries": [
+    {
+      "id": "entry_a",
+      "embedding": [0.0]
+    }
+  ],
+  "previous_fit_corpus_size": 80
+}
+```
+
+Each `embedding` must contain exactly 768 finite numeric values. The abbreviated vector above is only for readability.
+
+Response fields include:
+
+- `vectors[].reduced_vector`
+- `vectors[].angle_vector`
+- `explained_variance_ratio`
+- `total_explained_variance`
+- `refit_recommended`
+- `corpus_size`
+
 ## PCA Reduction
 
 XPE-HC-02 adds reusable PCA helpers in `app/pca.py` for reducing Gemini journal embeddings from 768 dimensions to 8 dimensions before Cirq encoding.
