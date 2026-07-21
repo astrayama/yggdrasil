@@ -20,6 +20,7 @@ export const CIRQ_SERVICE_URL_ENV_VAR = 'CIRQ_SERVICE_URL';
 const INPUT_EMBEDDING_DIMENSIONS = 768;
 const CIRQ_VECTOR_DIMENSIONS = 8;
 const CIRQ_REQUEST_TIMEOUT_MS = 15_000;
+const CONNECTION_REASON = 'Hidden connection identified from semantic similarity';
 
 type HiddenConnectionPath = 'cirq' | 'fallback_knn';
 
@@ -38,7 +39,6 @@ interface ScoredConnection extends CandidatePair {
   score: number;
   path: HiddenConnectionPath;
   reason: string;
-  cirqScore?: number;
 }
 
 interface ReducedVectorResponse {
@@ -154,7 +154,7 @@ async function computeForUser(
   const cirqServiceUrl = normalizeServiceUrl(process.env[CIRQ_SERVICE_URL_ENV_VAR]);
   const scoredConnections = cirqServiceUrl
     ? await rerankWithCirq(cirqServiceUrl, entries, candidatePairs, userId)
-    : scoreWithKnnOnly(candidatePairs, 'Cirq service URL is not configured');
+    : scoreWithKnnFallbackForMissingService(candidatePairs, userId);
 
   const connectionsToStore = scoredConnections
     .sort((a, b) => b.score - a.score)
@@ -256,7 +256,12 @@ async function rerankWithCirq(
   candidatePairs: CandidatePair[],
   userId: string
 ): Promise<ScoredConnection[]> {
-  const angleVectors = await getCirqAngleVectors(cirqServiceUrl, entries, userId);
+  const angleVectors = await getCirqAngleVectorsOrNull(cirqServiceUrl, entries, userId);
+
+  if (!angleVectors) {
+    return scoreWithKnnOnly(candidatePairs);
+  }
+
   const scoredConnections: ScoredConnection[] = [];
 
   for (const pair of candidatePairs) {
@@ -269,6 +274,7 @@ async function rerankWithCirq(
         sourceId: pair.sourceId,
         targetId: pair.targetId,
       });
+      scoredConnections.push(scoreWithKnnFallback(pair));
       continue;
     }
 
@@ -278,23 +284,37 @@ async function rerankWithCirq(
         ...pair,
         score: cirqScore,
         path: 'cirq',
-        cirqScore,
-        reason: 'Cirq kernel re-ranked semantic candidate',
+        reason: CONNECTION_REASON,
       });
     } catch (error) {
-      // XPE-HC-05 will make fallback parity explicit. For this scheduled
-      // orchestration ticket, a failed pair is skipped while the rest of the
-      // user's candidates continue.
       logger.warn('[hiddenConnectionsBatch] Cirq kernel call failed for pair', {
         userId,
         sourceId: pair.sourceId,
         targetId: pair.targetId,
         error,
       });
+      scoredConnections.push(scoreWithKnnFallback(pair));
     }
   }
 
   return scoredConnections;
+}
+
+async function getCirqAngleVectorsOrNull(
+  cirqServiceUrl: string,
+  entries: EntryWithEmbedding[],
+  userId: string
+): Promise<Map<string, number[]> | null> {
+  try {
+    return await getCirqAngleVectors(cirqServiceUrl, entries, userId);
+  } catch (error) {
+    logger.warn('[hiddenConnectionsBatch] PCA reduction failed; falling back to KNN', {
+      userId,
+      entryCount: entries.length,
+      error,
+    });
+    return null;
+  }
 }
 
 async function getCirqAngleVectors(
@@ -347,19 +367,39 @@ async function callCirqKernel(
     throw new Error('Unexpected Cirq kernel response metadata');
   }
 
+  if (!Number.isFinite(response.score)) {
+    throw new Error('Cirq kernel response score must be finite');
+  }
+
   return clampScore(response.score);
 }
 
 function scoreWithKnnOnly(
-  candidatePairs: CandidatePair[],
-  reason: string
+  candidatePairs: CandidatePair[]
 ): ScoredConnection[] {
-  return candidatePairs.map((pair) => ({
+  return candidatePairs.map((pair) => scoreWithKnnFallback(pair));
+}
+
+function scoreWithKnnFallbackForMissingService(
+  candidatePairs: CandidatePair[],
+  userId: string
+): ScoredConnection[] {
+  logger.info('[hiddenConnectionsBatch] Cirq service URL missing; falling back to KNN', {
+    userId,
+    candidateCount: candidatePairs.length,
+  });
+  return scoreWithKnnOnly(candidatePairs);
+}
+
+function scoreWithKnnFallback(
+  pair: CandidatePair
+): ScoredConnection {
+  return {
     ...pair,
     score: pair.knnSimilarity,
     path: 'fallback_knn',
-    reason,
-  }));
+    reason: CONNECTION_REASON,
+  };
 }
 
 async function storeConnections(
@@ -397,7 +437,6 @@ async function storeConnections(
       score: connection.score,
       similarity: connection.score,
       knnSimilarity: connection.knnSimilarity,
-      ...(connection.cirqScore === undefined ? {} : { cirqScore: connection.cirqScore }),
       weak: false,
       reason: connection.reason,
       computedVia: connection.path,
