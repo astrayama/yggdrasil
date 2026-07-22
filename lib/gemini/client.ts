@@ -74,7 +74,9 @@ const client: GeminiClient = {
     const inner = vertexAI.getGenerativeModel({
       model: opts.model,
       generationConfig: opts.generationConfig as never,
-      systemInstruction: opts.systemInstruction,
+      systemInstruction: opts.systemInstruction
+        ? { role: 'system', parts: opts.systemInstruction.parts }
+        : undefined,
     });
     return wrapModel(inner);
   },
