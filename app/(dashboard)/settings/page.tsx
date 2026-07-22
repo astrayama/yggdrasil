@@ -10,6 +10,7 @@ import { db } from '@/lib/firebase/client';
 import { SettingsTracker } from './_tracker';
 import { toast } from 'sonner';
 import { UpgradeCallout } from '@/components/billing/UpgradeCallout';
+import { DataExport } from '@/components/settings/DataExport';
 
 const ALL_FRAMEWORKS = [
   { id: 'Theravada Buddhist', description: 'Emphasizes mindfulness, impermanence, and detachment to reduce suffering.' },
@@ -127,6 +128,8 @@ export default function SettingsPage() {
           </div>
         )}
       </section>
+
+      <DataExport />
 
       <section>
         <UpgradeCallout
