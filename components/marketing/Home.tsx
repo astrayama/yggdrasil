@@ -483,13 +483,14 @@ export function MarketingHome() {
   const [demoText, setDemoText] = useState(
     "I keep coming back to the same worry, worn smooth like a stone in my pocket. Today it felt lighter — familiar enough that I could hold it without flinching.",
   );
+  const [insightText, setInsightText] = useState('');
+  const [insightTags, setInsightTags] = useState<{ label: string; variant: 'neutral' | 'positive' | 'framework' }[]>([]);
+  const [safetyConcerns, setSafetyConcerns] = useState<string[] | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [dateLine, setDateLine] = useState('');
   const thinkTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Signed-in visitors go straight to the app.
-  useEffect(() => {
-    if (!loading && user) router.replace('/journal');
-  }, [loading, user, router]);
+  // Removed redirect for signed-in visitors so they can view the marketing page
 
   // Compute the demo date after mount to avoid an SSR/CSR hydration mismatch.
   useEffect(() => {
@@ -507,11 +508,40 @@ export function MarketingHome() {
   const overLimit = words > 100;
   const demoDisabled = !demoText.trim() || overLimit;
 
-  const runReflect = () => {
+  const runReflect = async () => {
+    const text = demoText.trim();
     if (demoDisabled || demoState === 'thinking') return;
     setDemoState('thinking');
-    if (thinkTimer.current) clearTimeout(thinkTimer.current);
-    thinkTimer.current = setTimeout(() => setDemoState('done'), 1900);
+    setErrorMsg(null);
+    try {
+      const res = await fetch('/api/reflect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        setErrorMsg(
+          data?.error || "Yggdrasil couldn't reach its reflection service. Please try again in a moment.",
+        );
+        setDemoState('idle');
+        return;
+      }
+      const tags = (Array.isArray(data.tags) ? data.tags : [])
+        .slice(0, 4)
+        .map((t: any) => ({
+          label: String(t.label || '').slice(0, 26),
+          variant: (['positive', 'framework'].includes(t.variant) ? t.variant : 'neutral') as any,
+        }))
+        .filter((t: any) => t.label);
+      setInsightText(String(data.insight || ''));
+      setInsightTags(tags);
+      setSafetyConcerns(data.safety?.flagged ? (data.safety.concerns ?? []) : null);
+      setDemoState('done');
+    } catch {
+      setErrorMsg("Yggdrasil couldn't reach its reflection service. Please try again in a moment.");
+      setDemoState('idle');
+    }
   };
 
   const goBegin = () => {
@@ -571,8 +601,9 @@ export function MarketingHome() {
               <a href="#demo" className="mkt-link" style={{ fontSize: 14 }}>Try it</a>
               <a href="#how" className="mkt-link" style={{ fontSize: 14 }}>How it works</a>
               <a href="#pricing" className="mkt-link" style={{ fontSize: 14 }}>Pricing</a>
+              <a href="/login" className="mkt-link" style={{ fontSize: 14 }}>Log in</a>
             </span>
-            <Button size="sm" onClick={goBegin}>Join waitlist</Button>
+            <Button size="sm" onClick={goBegin} style={{ background: '#C9A84C', color: '#0F1A14', border: 'none' }}>Join waitlist</Button>
           </nav>
         </div>
       </header>
@@ -677,8 +708,8 @@ export function MarketingHome() {
           />
           {demoState === 'idle' && (
             <div style={{ padding: 16, borderTop: '1px solid rgba(42,64,53,0.4)', background: '#162318', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontFamily: MONO, fontSize: 11, color: 'rgba(232,224,208,0.4)', lineHeight: 1.5 }}>
-                {overLimit ? 'A little shorter, please — the demo reads up to 100 words.' : 'Try it in your own words — the real site reflects live'}
+              <span style={{ fontFamily: MONO, fontSize: 11, color: errorMsg ? 'rgba(224,165,165,0.9)' : 'rgba(232,224,208,0.4)', lineHeight: 1.5 }}>
+                {errorMsg ? errorMsg : overLimit ? 'A little shorter, please — the demo reads up to 100 words.' : 'Try it in your own words — the real site reflects live'}
               </span>
               <Button onClick={runReflect} disabled={demoDisabled}>Reflect with Yggi</Button>
             </div>
@@ -690,14 +721,32 @@ export function MarketingHome() {
           )}
           {demoState === 'done' && (
             <div style={{ padding: 24, borderTop: '1px solid rgba(42,64,53,0.4)', background: '#162318' }}>
+              {safetyConcerns && (
+                <div style={{ background: 'rgba(127,29,29,0.2)', border: '1px solid rgba(239,68,68,0.5)', borderRadius: 12, padding: 16, marginBottom: 18, display: 'flex', gap: 12, alignItems: 'flex-start', textAlign: 'left' }}>
+                  <span style={{ fontSize: 20, marginTop: 2 }}>⚠️</span>
+                  <div>
+                    <h4 style={{ fontSize: 13, fontWeight: 600, color: '#F87171', textTransform: 'uppercase', letterSpacing: '0.05em', margin: '0 0 8px' }}>
+                      Safety Consideration
+                    </h4>
+                    {safetyConcerns.map((concern, idx) => (
+                      <p key={idx} style={{ fontSize: 13, lineHeight: 1.6, color: 'rgba(254,202,202,0.9)', margin: '0 0 4px' }}>
+                        • {concern}
+                      </p>
+                    ))}
+                    <p style={{ fontSize: 12, color: 'rgba(252,165,165,0.7)', marginTop: 10, borderTop: '1px solid rgba(127,29,29,0.5)', paddingTop: 8, marginBottom: 0 }}>
+                      If you or someone else is in immediate danger, please reach out to local emergency services or a crisis lifeline.
+                    </p>
+                  </div>
+                </div>
+              )}
               <p style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.2em', color: 'rgba(201,168,76,0.8)', fontWeight: 600, margin: '0 0 10px' }}>Yggi Insight</p>
               <p style={{ fontFamily: DISPLAY, fontStyle: 'italic', fontSize: 20, lineHeight: 1.45, color: '#E8E0D0', margin: '0 0 16px' }}>
-                “The worry hasn&apos;t changed much — the way you hold it has. That&apos;s usually how it goes: the stone stays, the grip softens.”
+                “{insightText}”
               </p>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <Tag variant="positive">Self-compassion</Tag>
-                <Tag variant="neutral">Recurring worry</Tag>
-                <Tag variant="positive">Softening</Tag>
+                {insightTags.map((tag, i) => (
+                  <Tag key={i} variant={tag.variant as any}>{tag.label}</Tag>
+                ))}
               </div>
               <button type="button" onClick={() => setDemoState('idle')} className="mkt-reset-link">
                 ← Edit your entry and reflect again
@@ -900,7 +949,7 @@ export function MarketingHome() {
               <button type="button" onClick={() => setBilling('monthly')} style={billingBtnStyle(billing === 'monthly')}>Monthly</button>
               <button type="button" onClick={() => setBilling('yearly')} style={billingBtnStyle(billing === 'yearly')}>Yearly</button>
             </div>
-            <span style={{ fontFamily: MONO, fontSize: 11, color: '#7BAE8A' }}>save 3 months when billed yearly</span>
+            <span style={{ fontFamily: MONO, fontSize: 11, color: '#7BAE8A' }}>save 2 months when billed yearly</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 24 }}>
             <PlanCard
@@ -915,7 +964,7 @@ export function MarketingHome() {
               price={billing === 'yearly' ? '$89.99/yr' : '$8.99/mo'}
               description="The full knowledge graph, deep insights, frameworks — and the whole Living Tree."
               badge="Most Popular"
-              subtext={billing === 'yearly' ? 'Save 25% — 3 months free' : 'Billed monthly, cancel anytime'}
+              subtext={billing === 'yearly' ? 'Save 16% — 2 months free' : 'Billed monthly, cancel anytime'}
               actionLabel="Join waitlist"
               onAction={goSignup}
             />
@@ -1075,6 +1124,7 @@ function WaitlistForm({
               router.push(`/signup?email=${encodeURIComponent(email.trim())}`);
             }
           }}
+          style={{ background: '#C9A84C', color: '#0F1A14', border: 'none' }}
         >
           {saving ? 'One moment…' : beganPractice ? 'Be a Beta Tester' : 'Join waitlist'}
         </Button>
