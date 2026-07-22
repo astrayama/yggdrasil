@@ -1,6 +1,6 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
 import * as admin from 'firebase-admin';
-import { BillingPeriod, getAppUrl, getPriceIdByBillingPeriod, getStripe, isRecurringBillingPeriod } from './shared';
+import { BillingPeriod, getAppUrl, getPriceIdByBillingPeriod, getStripe, isRecurringBillingPeriod, stripeSecret } from './shared';
 import {
   buildLifetimeUpgradeCheckout,
   findActiveRecurringSubscription,
@@ -10,7 +10,7 @@ import {
 } from './lifetimeUpgrade';
 import { getStripeBillingContext } from './store';
 
-export const createCheckout = onCall(async (request) => {
+export const createCheckout = onCall({ secrets: [stripeSecret] }, async (request) => {
   if (!request.auth?.uid) {
     throw new HttpsError('unauthenticated', 'User must be authenticated.');
   }
@@ -30,6 +30,9 @@ export const createCheckout = onCall(async (request) => {
     const db = admin.firestore();
     const stripe = getStripe();
     const priceId = getPriceIdByBillingPeriod()[billingPeriod];
+    if (!priceId) {
+      throw new Error(`Stripe price ID for ${billingPeriod} is not configured.`);
+    }
     const appUrl = getAppUrl();
     const userRef = db.doc(`users/${request.auth.uid}`);
     const { stripeCustomerId: storedStripeCustomerId, stripeSubscriptionId } = await getStripeBillingContext(request.auth.uid);
@@ -70,7 +73,7 @@ export const createCheckout = onCall(async (request) => {
       billingPeriod,
     };
 
-    const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
+    const sessionParams: any = {
       mode: isRecurringBillingPeriod(billingPeriod) ? 'subscription' : 'payment',
       line_items: [{ price: priceId, quantity: 1 }],
       customer: stripeCustomerId,
