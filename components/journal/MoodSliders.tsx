@@ -1,6 +1,7 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
+import { EMOTIONS, type Emotion } from "@/lib/emotions";
 import { getMoodLabel } from "@/lib/moodLabel";
 
 export interface MoodState {
@@ -15,10 +16,28 @@ interface MoodSlidersProps {
 }
 
 export function MoodSliders({ mood, onChange }: MoodSlidersProps) {
+  const [query, setQuery] = useState('');
+  const [isOpen, setIsOpen] = useState(false);
   const isSet = mood !== null;
   const polarity = mood?.polarity ?? 5;
   const intensity = mood?.intensity ?? 5;
   const label = mood?.label ?? "Neutral";
+  const normalizedQuery = query.trim().toLowerCase();
+  const filtered = EMOTIONS
+    .filter((emotion) => emotion.label.toLowerCase().includes(normalizedQuery))
+    .sort((a, b) => {
+      const aLabel = a.label.toLowerCase();
+      const bLabel = b.label.toLowerCase();
+      const aStarts = aLabel.startsWith(normalizedQuery);
+      const bStarts = bLabel.startsWith(normalizedQuery);
+
+      if (aStarts !== bStarts) {
+        return aStarts ? -1 : 1;
+      }
+
+      return a.label.localeCompare(b.label);
+    })
+    .slice(0, 6);
 
   const handlePolarityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = parseInt(e.target.value, 10);
@@ -30,7 +49,21 @@ export function MoodSliders({ mood, onChange }: MoodSlidersProps) {
     onChange({ polarity, intensity: val, label: getMoodLabel(polarity, val) });
   };
 
-  const handleClear = () => onChange(null);
+  const handleEmotionSelect = (emotion: Emotion) => {
+    onChange({
+      polarity: emotion.polarity,
+      intensity: emotion.intensity,
+      label: emotion.label,
+    });
+    setQuery('');
+    setIsOpen(false);
+  };
+
+  const handleClear = () => {
+    setQuery('');
+    setIsOpen(false);
+    onChange(null);
+  };
 
   return (
     <div className="flex flex-col gap-4 w-full p-4 sm:p-5 border border-border/40 rounded-sm bg-surface">
@@ -55,6 +88,38 @@ export function MoodSliders({ mood, onChange }: MoodSlidersProps) {
             </button>
           )}
         </div>
+      </div>
+
+      <div className="relative">
+        <input
+          type="text"
+          value={query}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setIsOpen(true);
+          }}
+          onFocus={() => setIsOpen(true)}
+          onBlur={() => setIsOpen(false)}
+          placeholder="Or name an emotion..."
+          className="w-full px-3 py-1.5 bg-background border border-border/60 rounded-sm text-sm text-foreground placeholder:text-foreground/30 focus:outline-none focus:border-sage/60"
+        />
+        {isOpen && filtered.length > 0 && (
+          <div className="absolute z-10 w-full bg-surface border border-border/60 rounded-sm shadow-lg mt-1">
+            {filtered.map((emotion) => (
+              <button
+                key={emotion.label}
+                type="button"
+                onMouseDown={(event) => {
+                  event.preventDefault();
+                  handleEmotionSelect(emotion);
+                }}
+                className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-muted/30 focus:bg-muted/30 focus:outline-none transition-colors"
+              >
+                {emotion.label}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-4 mt-2">
