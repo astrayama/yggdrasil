@@ -71,7 +71,7 @@ steps:
         gcloud run services replace /workspace/rendered.yaml \
           --project=$PROJECT_ID \
           --region=$_REGION
-        echo "Deployed yggdrasil-web-$$_ENV"
+        echo "Deployed yggdrasil-web-$_ENV"
 
   # 6. Smoke test the health endpoint (10 tries × 10s).
   - id: smoke
