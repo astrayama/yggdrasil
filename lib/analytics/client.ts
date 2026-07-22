@@ -161,6 +161,6 @@ export const logSettingsOpened = () => {
   logEvent('settings_opened');
 };
 
-export const logDataExported = () => {
-  logEvent('data_exported');
+export const logDataExported = (params: { entryCount: number; format: 'json'; exportedAt: string }) => {
+  logEvent('data_exported', params);
 };
