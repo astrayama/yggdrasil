@@ -16,6 +16,7 @@ import type {
   JourneyEvent,
   Ring,
   Root,
+  RootEntryLinkSource,
   RootKind,
   RootLinkSuggestion,
   RootStatus,
@@ -281,7 +282,7 @@ export async function linkEntryToRoot(
   userId: string,
   rootId: string,
   entry: Pick<JournalEntry, 'id' | 'title' | 'content' | 'createdAt' | 'entryDate'>,
-  source: 'suggestion' | 'manual'
+  source: RootEntryLinkSource
 ): Promise<void> {
   const batch = writeBatch(db);
   batch.set(doc(collection(db, eventsPath(userId, rootId))), {

@@ -2,8 +2,10 @@ import { getWeekStart, isWeekStale, cycleBranchStatus } from './rootsLogic';
 import {
   scoreRootCandidates,
   SUGGEST_THRESHOLD,
+  AUTO_LINK_THRESHOLD,
   THEME_BOOST,
   MAX_SUGGESTIONS_PER_ENTRY,
+  MAX_AUTO_LINKS_PER_ENTRY,
 } from '../functions/src/roots/scoring';
 
 describe('getWeekStart', () => {
@@ -81,6 +83,12 @@ describe('scoreRootCandidates', () => {
     const boosted = scoreRootCandidates([...embedding], ['Solitude'], [candidate]);
     expect(boosted).toHaveLength(1);
     expect(boosted[0].score).toBeCloseTo(0.5 + THEME_BOOST, 5);
+    expect(boosted[0].matchedThemes).toEqual(['solitude']);
+  });
+
+  it('keeps auto-linking stricter than suggestions', () => {
+    expect(AUTO_LINK_THRESHOLD).toBeGreaterThan(SUGGEST_THRESHOLD);
+    expect(MAX_AUTO_LINKS_PER_ENTRY).toBeLessThanOrEqual(MAX_SUGGESTIONS_PER_ENTRY);
   });
 
   it('returns at most the top suggestions, highest score first', () => {
