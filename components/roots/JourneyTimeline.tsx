@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { orderBy } from 'firebase/firestore';
+import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { useFirestore } from '@/hooks/useFirestore';
+import { unlinkEntryFromRoot } from '@/lib/roots';
 import type { JourneyEvent, Ring, Root } from '@/types/goals';
 
 const COLLAPSED_COUNT = 8;
@@ -68,6 +70,7 @@ function EventBody({ event }: { event: JourneyEvent }) {
 export function JourneyTimeline({ root }: { root: Root }) {
   const { user } = useAuth();
   const [showAll, setShowAll] = useState(false);
+  const [removingEntryId, setRemovingEntryId] = useState<string | null>(null);
   const { data: events, loading } = useFirestore<JourneyEvent>(
     user ? `users/${user.uid}/roots/${root.id}/events` : '',
     orderBy('createdAt', 'desc')
@@ -78,6 +81,21 @@ export function JourneyTimeline({ root }: { root: Root }) {
     .filter((r) => !r.achievedAt)
     .sort((a, b) => a.targetDate - b.targetDate)[0];
   const visible = showAll ? events : events.slice(0, COLLAPSED_COUNT);
+
+  const handleUnlink = async (event: JourneyEvent) => {
+    if (!user || event.type !== 'entry_linked' || !event.entryId) return;
+
+    setRemovingEntryId(event.entryId);
+    try {
+      await unlinkEntryFromRoot(user.uid, root.id, event.entryId);
+      toast.success('Entry removed from this journey');
+    } catch (error) {
+      console.error('Failed to unlink entry from root', error);
+      toast.error('Failed to remove entry');
+    } finally {
+      setRemovingEntryId(null);
+    }
+  };
 
   if (loading) return null;
 
@@ -127,9 +145,22 @@ export function JourneyTimeline({ root }: { root: Root }) {
               <div className="min-w-0 flex-1">
                 <EventBody event={event} />
               </div>
-              <span className="whitespace-nowrap rounded-full border border-border/60 bg-surface px-2 py-0.5 text-[10px] text-muted-foreground">
-                {formatDate(event.type === 'entry_linked' && event.entryDate ? event.entryDate : event.createdAt)}
-              </span>
+              <div className="flex shrink-0 items-center gap-1.5">
+                <span className="whitespace-nowrap rounded-full border border-border/60 bg-surface px-2 py-0.5 text-[10px] text-muted-foreground">
+                  {formatDate(event.type === 'entry_linked' && event.entryDate ? event.entryDate : event.createdAt)}
+                </span>
+                {event.type === 'entry_linked' && event.entryId && (
+                  <button
+                    type="button"
+                    onClick={() => handleUnlink(event)}
+                    disabled={removingEntryId === event.entryId}
+                    className="rounded-full px-1.5 py-0.5 text-xs text-muted-foreground/70 transition-colors hover:text-destructive disabled:opacity-40"
+                    aria-label={`Remove ${event.entryTitle || 'journal entry'} from this journey`}
+                  >
+                    x
+                  </button>
+                )}
+              </div>
             </div>
           </li>
         ))}

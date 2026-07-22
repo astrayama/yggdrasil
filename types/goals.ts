@@ -1,6 +1,7 @@
 export type RootKind = 'value' | 'goal';
 export type RootStatus = 'active' | 'completed' | 'archived';
 export type BranchStatus = 'not_started' | 'in_progress' | 'done';
+export type RootEntryLinkSource = 'manual' | 'suggestion' | 'auto';
 
 export interface BranchAction {
   id: string; // client-generated (crypto.randomUUID())
@@ -72,7 +73,10 @@ export interface JourneyEvent {
   entryTitle?: string;
   entryExcerpt?: string; // ~160 chars plain text
   entryDate?: number;
-  linkSource?: 'suggestion' | 'manual';
+  linkSource?: RootEntryLinkSource;
+  score?: number;
+  similarity?: number;
+  matchedThemes?: string[];
   // micro_win
   branchId?: string;
   label?: string;
@@ -99,6 +103,7 @@ export interface RootLinkSuggestion {
   entryExcerpt: string;
   entryDate: number;
   similarity: number;
+  matchedThemes?: string[];
   status: 'pending' | 'confirmed' | 'dismissed';
   createdAt: number;
   resolvedAt?: number;

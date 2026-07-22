@@ -10,11 +10,20 @@
  */
 export const SUGGEST_THRESHOLD = 0.55;
 
+/**
+ * Stricter boosted similarity required to link an entry automatically. This
+ * stays conservative because an auto-link should feel obvious when it appears.
+ */
+export const AUTO_LINK_THRESHOLD = 0.72;
+
 /** Flat boost when an analysis theme literally appears in the root's text. */
 export const THEME_BOOST = 0.08;
 
 /** At most this many suggestions per entry, to keep the nudge gentle. */
 export const MAX_SUGGESTIONS_PER_ENTRY = 2;
+
+/** At most this many high-confidence roots are auto-linked per entry. */
+export const MAX_AUTO_LINKS_PER_ENTRY = 2;
 
 export interface RootCandidate {
   id: string;
@@ -26,6 +35,7 @@ export interface RootCandidate {
 export interface ScoredRoot {
   rootId: string;
   score: number;
+  matchedThemes: string[];
 }
 
 export function cosineSimilarity(a: number[], b: number[]): number {
@@ -53,10 +63,11 @@ export function scoreRootCandidates(
     .map((root) => {
       let score = cosineSimilarity(entryEmbedding, root.embedding);
       const rootText = `${root.title} ${root.why}`.toLowerCase();
-      if (lowerThemes.some((theme) => theme && rootText.includes(theme))) {
+      const matchedThemes = lowerThemes.filter((theme) => theme && rootText.includes(theme));
+      if (matchedThemes.length > 0) {
         score += THEME_BOOST;
       }
-      return { rootId: root.id, score };
+      return { rootId: root.id, score, matchedThemes };
     })
     .filter((candidate) => candidate.score >= SUGGEST_THRESHOLD)
     .sort((a, b) => b.score - a.score)
