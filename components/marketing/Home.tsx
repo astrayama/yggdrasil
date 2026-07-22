@@ -1010,6 +1010,7 @@ function WaitlistForm({
   const [honeypot, setHoneypot] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [beganPractice, setBeganPractice] = useState(false);
 
   return (
     <form
@@ -1017,7 +1018,7 @@ function WaitlistForm({
         e.preventDefault();
         if (saving) return;
         setError(null);
-        if (!email.trim()) {
+        if (!email.trim() || !email.includes('@')) {
           router.push('/signup');
           return;
         }
@@ -1036,21 +1037,25 @@ function WaitlistForm({
               return;
             }
           }
-          router.push(`/signup?email=${encodeURIComponent(email.trim())}`);
+          setBeganPractice(true);
         } catch {
-          router.push(`/signup?email=${encodeURIComponent(email.trim())}`);
+          setBeganPractice(true);
+        } finally {
+          setSaving(false);
         }
       }}
       style={{ width: '100%', maxWidth: 460, ...style }}
     >
       <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', justifyContent: 'center', flexWrap: 'wrap' }}>
-        <Input
-          type="email"
-          placeholder="you@example.com"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          containerStyle={{ flex: 1, minWidth: 220 }}
-        />
+        {!beganPractice && (
+          <Input
+            type="email"
+            placeholder="you@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            containerStyle={{ flex: 1, minWidth: 220 }}
+          />
+        )}
         <input
           type="text"
           name="website"
@@ -1061,11 +1066,25 @@ function WaitlistForm({
           aria-hidden="true"
           style={{ position: 'absolute', left: -9999, width: 1, height: 1, opacity: 0 }}
         />
-        <Button size={buttonSize} type="submit" disabled={saving}>
-          {saving ? 'One moment…' : 'Join waitlist'}
+        <Button
+          size={buttonSize}
+          type={beganPractice ? 'button' : 'submit'}
+          disabled={saving}
+          onClick={() => {
+            if (beganPractice) {
+              router.push(`/signup?email=${encodeURIComponent(email.trim())}`);
+            }
+          }}
+        >
+          {saving ? 'One moment…' : beganPractice ? 'Be a Beta Tester' : 'Join waitlist'}
         </Button>
       </div>
       {error && <p style={{ fontSize: 13, color: 'rgba(224,165,165,0.9)', margin: '12px 0 0' }}>{error}</p>}
+      {beganPractice && (
+        <p style={{ color: 'rgba(232,224,208,0.72)', fontSize: '14px', textAlign: 'center', marginTop: 14 }}>
+          Congrats! You have been added to the waitlist!
+        </p>
+      )}
     </form>
   );
 }
