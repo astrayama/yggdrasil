@@ -727,7 +727,7 @@ export function MarketingHome() {
             <div data-reveal="100">
               <PlanCard
                 title="Pro"
-                price={billing === 'yearly' ? '$44.99/yr' : '$4.99/mo'}
+                price={billing === 'yearly' ? '$89.99/yr' : '$8.99/mo'}
                 description="The full knowledge graph, deep insights, frameworks, and export tools."
                 badge="Most Popular"
                 subtext={billing === 'yearly' ? 'Save 25% — 3 months free' : 'Billed monthly · cancel anytime'}

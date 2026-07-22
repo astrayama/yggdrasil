@@ -19,6 +19,7 @@ interface YggiChatData {
 export const yggiChat = onCall(
   {
     secrets: [geminiapikey],
+    invoker: 'public',
   },
   async (request) => {
     const { auth, data } = request;

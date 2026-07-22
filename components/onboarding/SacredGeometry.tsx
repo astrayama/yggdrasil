@@ -38,6 +38,8 @@ interface SacredGeometryProps {
   strokeWidth?: number;
   /** When true, the mark gently breathes (disabled under prefers-reduced-motion). */
   breathe?: boolean;
+  /** The color of the rings (defaults to gold). */
+  color?: string;
   className?: string;
   style?: CSSProperties;
 }
@@ -47,6 +49,7 @@ export function SacredGeometry({
   opacity = 1,
   strokeWidth = 1,
   breathe = false,
+  color = GOLD,
   className = '',
   style = {},
 }: SacredGeometryProps) {
@@ -63,7 +66,7 @@ export function SacredGeometry({
             cx={ring.cx}
             cy={ring.cy}
             r={ring.r}
-            stroke={GOLD}
+            stroke={color}
             strokeOpacity={ring.opacity}
             strokeWidth={strokeWidth}
           />

@@ -1,4 +1,4 @@
-import type Stripe from 'stripe';
+
 import { getStripe } from './shared';
 
 export type StripeRecurringSubscription = {
@@ -23,7 +23,7 @@ export async function findExistingStripeCustomerId(email: string): Promise<strin
     limit: 10,
   });
 
-  const reusableCustomer = customers.data.find((customer) => !customer.deleted);
+  const reusableCustomer = customers.data.find((customer: any) => !customer.deleted);
   return reusableCustomer?.id ?? null;
 }
 
@@ -46,7 +46,7 @@ export async function findActiveRecurringSubscription(
     limit: 10,
   });
 
-  const activeSubscription = subscriptions.data.find((subscription) => (
+  const activeSubscription = subscriptions.data.find((subscription: any) => (
     ['active', 'trialing', 'past_due'].includes(subscription.status)
   ));
 
@@ -104,7 +104,7 @@ export async function buildLifetimeUpgradeCheckout(
   priceId: string,
   recurringSubscription: StripeRecurringSubscription,
 ): Promise<{
-  lineItems?: NonNullable<Stripe.Checkout.SessionCreateParams['line_items']>;
+  lineItems?: NonNullable<any>;
   metadata: Record<string, string>;
 }> {
   const stripe = getStripe();

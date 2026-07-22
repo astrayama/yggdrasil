@@ -1,8 +1,8 @@
 import { HttpsError, onCall } from 'firebase-functions/v2/https';
-import { RecurringBillingPeriod, getAppUrl, getPriceIdByBillingPeriod, getStripe } from './shared';
+import { RecurringBillingPeriod, getAppUrl, getPriceIdByBillingPeriod, getStripe, stripeSecret } from './shared';
 import { getStripeBillingContext } from './store';
 
-export const createBillingPortalSession = onCall(async (request) => {
+export const createBillingPortalSession = onCall({ secrets: [stripeSecret] }, async (request) => {
   if (!request.auth?.uid) {
     throw new HttpsError('unauthenticated', 'User must be authenticated.');
   }
@@ -57,7 +57,7 @@ export const createBillingPortalSession = onCall(async (request) => {
           items: [
             {
               id: subscriptionItem.id,
-              price: getPriceIdByBillingPeriod()[billingPeriod],
+              price: getPriceIdByBillingPeriod()[billingPeriod] ?? (() => { throw new Error(`Missing price ID for ${billingPeriod}`) })(),
               quantity: subscriptionItem.quantity ?? 1,
             },
           ],

@@ -9,7 +9,7 @@ function MonthlyCard(props: PlanCardActionProps) {
     <PlanCard
       billingPeriod="monthly"
       title="Pro Monthly"
-      price="$4.99/mo"
+      price="$8.99/mo"
       description="Unlock premium reflections, hidden connections, the full graph, and export tools."
       {...props}
     />
@@ -21,7 +21,7 @@ function YearlyCard(props: PlanCardActionProps) {
     <PlanCard
       billingPeriod="yearly"
       title="Pro Annual"
-      price="$44.99/yr"
+      price="$89.99/yr"
       description="Everything in Pro with the best recurring price for steady practice."
       badge="Most Popular"
       subtext="Save 25% - 3 months free"

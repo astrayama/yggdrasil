@@ -1,4 +1,8 @@
 import Stripe from 'stripe';
+import { defineSecret } from 'firebase-functions/params';
+
+export const stripeSecret = defineSecret('STRIPE_SECRET_KEY');
+export const stripeWebhookSecret = defineSecret('STRIPE_WEBHOOK_SECRET');
 
 export type SubscriptionTier = 'FREE' | 'PRO';
 export type SubscriptionStatus = 'active' | 'cancelled' | 'past_due' | 'none';
@@ -8,7 +12,7 @@ export type RecurringBillingPeriod = Exclude<BillingPeriod, 'lifetime'>;
 export const FREE_INSIGHT_LIMIT = 5;
 export const FREE_ROOTS_LIMIT = 5;
 
-let stripeClient: Stripe | null = null;
+let stripeClient: any = null;
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -19,9 +23,9 @@ function requireEnv(name: string): string {
   return value;
 }
 
-export function getStripe(): Stripe {
+export function getStripe(): any {
   if (!stripeClient) {
-    stripeClient = new Stripe(requireEnv('STRIPE_SECRET_KEY'));
+    stripeClient = new Stripe(stripeSecret.value() || requireEnv('STRIPE_SECRET_KEY'));
   }
 
   return stripeClient;
@@ -31,22 +35,23 @@ export function getAppUrl(): string {
   return requireEnv('APP_URL');
 }
 
-export function getPriceIdByBillingPeriod(): Record<BillingPeriod, string> {
+export function getPriceIdByBillingPeriod(): Partial<Record<BillingPeriod, string>> {
   return {
-    monthly: requireEnv('STRIPE_PRICE_ID_PRO'),
-    yearly: requireEnv('STRIPE_PRICE_ID_ANNUAL'),
-    lifetime: requireEnv('STRIPE_PRICE_ID_LIFETIME'),
+    monthly: process.env.STRIPE_PRICE_ID_PRO,
+    yearly: process.env.STRIPE_PRICE_ID_ANNUAL,
+    lifetime: process.env.STRIPE_PRICE_ID_LIFETIME,
   };
 }
 
 export function getBillingPeriodByPriceId(): Record<string, BillingPeriod> {
   const priceIdByBillingPeriod = getPriceIdByBillingPeriod();
+  const map: Record<string, BillingPeriod> = {};
 
-  return {
-    [priceIdByBillingPeriod.monthly]: 'monthly',
-    [priceIdByBillingPeriod.yearly]: 'yearly',
-    [priceIdByBillingPeriod.lifetime]: 'lifetime',
-  };
+  if (priceIdByBillingPeriod.monthly) map[priceIdByBillingPeriod.monthly] = 'monthly';
+  if (priceIdByBillingPeriod.yearly) map[priceIdByBillingPeriod.yearly] = 'yearly';
+  if (priceIdByBillingPeriod.lifetime) map[priceIdByBillingPeriod.lifetime] = 'lifetime';
+
+  return map;
 }
 
 export function billingPeriodFromPriceId(priceId: string): BillingPeriod {

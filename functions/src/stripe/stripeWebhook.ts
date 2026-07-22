@@ -1,11 +1,13 @@
 import * as admin from 'firebase-admin';
 import { FieldValue } from 'firebase-admin/firestore';
-import type Stripe from 'stripe';
+
 import { onRequest } from 'firebase-functions/v2/https';
 import * as logger from 'firebase-functions/logger';
 import {
   billingPeriodFromPriceId,
   getStripe,
+  stripeSecret,
+  stripeWebhookSecret,
   type BillingPeriod,
   type SubscriptionStatus,
 } from './shared';
@@ -65,7 +67,7 @@ async function writeSubscription(
   }, { merge: true });
 }
 
-async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promise<void> {
+async function handleCheckoutCompleted(session: any): Promise<void> {
   const uid = session.metadata?.uid ?? session.client_reference_id;
   const priceId = session.metadata?.priceId;
   const customerId = typeof session.customer === 'string' ? session.customer : session.customer?.id;
@@ -107,7 +109,7 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session): Promis
   await logSubscriptionStarted(uid, billingPeriod);
 }
 
-async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Promise<void> {
+async function handleSubscriptionUpdated(subscription: any): Promise<void> {
   const customerId = typeof subscription.customer === 'string'
     ? subscription.customer
     : subscription.customer.id;
@@ -144,7 +146,7 @@ async function handleSubscriptionUpdated(subscription: Stripe.Subscription): Pro
   await logSubscriptionRenewed(uid, billingPeriod);
 }
 
-async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Promise<void> {
+async function handleSubscriptionDeleted(subscription: any): Promise<void> {
   const customerId = typeof subscription.customer === 'string'
     ? subscription.customer
     : subscription.customer.id;
@@ -175,7 +177,7 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription): Pro
   await logSubscriptionCancelled(uid);
 }
 
-async function handleInvoicePaymentFailed(invoice: Stripe.Invoice): Promise<void> {
+async function handleInvoicePaymentFailed(invoice: any): Promise<void> {
   const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
   const uid = invoice.parent && typeof invoice.parent !== 'string'
     ? invoice.parent.subscription_details?.metadata?.uid || (customerId ? await findUserIdByCustomerId(customerId) : null)
@@ -197,7 +199,7 @@ async function handleInvoicePaymentFailed(invoice: Stripe.Invoice): Promise<void
   }, { merge: true });
 }
 
-async function handleChargeRefunded(charge: Stripe.Charge): Promise<void> {
+async function handleChargeRefunded(charge: any): Promise<void> {
   const customerId = typeof charge.customer === 'string' ? charge.customer : charge.customer?.id;
   const paymentIntentId = typeof charge.payment_intent === 'string'
     ? charge.payment_intent
@@ -239,16 +241,16 @@ async function handleChargeRefunded(charge: Stripe.Charge): Promise<void> {
   await logSubscriptionCancelled(uid);
 }
 
-export const stripeWebhook = onRequest(async (req, res) => {
+export const stripeWebhook = onRequest({ secrets: [stripeSecret, stripeWebhookSecret] }, async (req, res) => {
   const signature = getHeaderSignature(req.headers['stripe-signature']);
-  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  const webhookSecret = stripeWebhookSecret.value() || process.env.STRIPE_WEBHOOK_SECRET;
 
   if (!signature || !webhookSecret) {
     res.status(400).send('Missing Stripe signature or webhook secret.');
     return;
   }
 
-  let event: Stripe.Event;
+  let event: any;
 
   try {
     event = getStripe().webhooks.constructEvent(req.rawBody, signature, webhookSecret);
@@ -270,19 +272,19 @@ export const stripeWebhook = onRequest(async (req, res) => {
 
     switch (event.type) {
       case 'checkout.session.completed':
-        await handleCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
+        await handleCheckoutCompleted(event.data.object as any);
         break;
       case 'customer.subscription.updated':
-        await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
+        await handleSubscriptionUpdated(event.data.object as any);
         break;
       case 'customer.subscription.deleted':
-        await handleSubscriptionDeleted(event.data.object as Stripe.Subscription);
+        await handleSubscriptionDeleted(event.data.object as any);
         break;
       case 'invoice.payment_failed':
-        await handleInvoicePaymentFailed(event.data.object as Stripe.Invoice);
+        await handleInvoicePaymentFailed(event.data.object as any);
         break;
       case 'charge.refunded':
-        await handleChargeRefunded(event.data.object as Stripe.Charge);
+        await handleChargeRefunded(event.data.object as any);
         break;
     }
 

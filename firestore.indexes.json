@@ -5,6 +5,19 @@
       "queryScope": "COLLECTION",
       "fields": [
         {
+          "fieldPath": "embedding",
+          "vectorConfig": {
+            "dimension": 768,
+            "flat": {}
+          }
+        }
+      ]
+    },
+    {
+      "collectionGroup": "entries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {
           "fieldPath": "tags",
           "arrayConfig": "CONTAINS"
         },
