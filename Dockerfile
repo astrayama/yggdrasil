@@ -16,6 +16,11 @@ COPY . .
 # Disable telemetry during the build
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Public Firebase client config is provided via a committed .env.production (NEXT_PUBLIC_*).
+# Next.js auto-loads .env.production during `next build` and bakes the values into the
+# client bundle. Keep ONLY public values in that file — runtime secrets come from Secret
+# Manager as env vars on Cloud Run (see cloudrun-service.yaml).
+
 RUN npm run build
 
 # Stage 3: Production runner

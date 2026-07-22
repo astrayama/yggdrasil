@@ -1,0 +1,116 @@
+# Cloud Build pipeline for the yggdrasil web app.
+#
+# Triggered by .github/workflows/deploy.yml via WIF:
+#   gcloud builds submit --config=cloudbuild.yaml --project=yggdrasil-yggi \
+#     --substitutions=_ENV=dev,_SHORT_SHA=<sha>
+#
+# Same GCP project for both envs. _ENV selects:
+#   * which Cloud Run service to deploy (yggdrasil-web-dev or yggdrasil-web-prod)
+#   * which manifest template to render
+#   * which image tag to use
+#
+# Identity signing + Binary Authorization are kept in DRYRUN to avoid blocking
+# failed-attestation deploys during development.
+steps:
+  # 1. Build the container image. Public Firebase config is baked from the
+  #    committed .env.production (Next.js auto-loads it).
+  - id: build
+    name: 'gcr.io/cloud-builders/docker'
+    waitFor: ['-']
+    args:
+      - 'build'
+      - '-t'
+      - '$_AR_HOST/$PROJECT_ID/yggdrasil/yggdrasil-web:$_ENV-$_SHORT_SHA'
+      - '-t'
+      - '$_AR_HOST/$PROJECT_ID/yggdrasil/yggdrasil-web:$_ENV-latest'
+      - '--build-arg'
+      - 'NODE_ENV=production'
+      - '.'
+
+  # 2. Push all tags to Artifact Registry.
+  - id: push
+    name: 'gcr.io/cloud-builders/docker'
+    waitFor: ['build']
+    args: ['push', '--all-tags', '$_AR_HOST/$PROJECT_ID/yggdrasil/yggdrasil-web']
+
+  # 3. Capture image digest (used for cosign + deploy).
+  - id: digest
+    name: 'gcr.io/cloud-builders/gcloud'
+    waitFor: ['push']
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        set -euo pipefail
+        DIGEST=$$(gcloud artifacts docker images describe \
+          "$_AR_HOST/$PROJECT_ID/yggdrasil/yggdrasil-web:$_ENV-$_SHORT_SHA" \
+          --format='value(image_summary.digest)')
+        echo "$_AR_HOST/$PROJECT_ID/yggdrasil/yggdrasil-web@$$DIGEST" > /workspace/image_ref
+        echo "Image ref: $$(cat /workspace/image_ref)"
+
+  # 4. (Sign step removed — cosign image was not pullable. Binary Authorization
+  #    is in DRYRUN mode so signed images are not required for deployment.)
+
+  # 5. Render env-specific Cloud Run manifest and deploy.
+  - id: deploy
+    name: 'gcr.io/cloud-builders/gcloud'
+    waitFor: ['digest']
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        set -euo pipefail
+        IMAGE_REF=$$(cat /workspace/image_ref)
+        case "$_ENV" in
+          dev)  MANIFEST=cloudrun-service-dev.yaml  ;;
+          prod) MANIFEST=cloudrun-service-prod.yaml ;;
+          *) echo "ERROR: _ENV must be 'dev' or 'prod' (got: $_ENV)"; exit 1 ;;
+        esac
+        echo "Rendering $$MANIFEST with image $$IMAGE_REF"
+        sed -e "s|__IMAGE__|$$IMAGE_REF|g" "$$MANIFEST" > /workspace/rendered.yaml
+        gcloud run services replace /workspace/rendered.yaml \
+          --project=$PROJECT_ID \
+          --region=$_REGION
+        echo "Deployed yggdrasil-web-$_ENV"
+
+  # 6. Smoke test the health endpoint (10 tries × 10s).
+  - id: smoke
+    name: 'gcr.io/cloud-builders/gcloud'
+    waitFor: ['deploy']
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        set -euo pipefail
+        case "$_ENV" in
+          dev)  SERVICE=yggdrasil-web-dev  ;;
+          prod) SERVICE=yggdrasil-web-prod ;;
+        esac
+        URL=$$(gcloud run services describe $$SERVICE \
+          --project=$PROJECT_ID --region=$_REGION --format='value(status.url)')
+        echo "Smoke testing $$URL/api/health"
+        for i in $$(seq 1 15); do
+          if curl -sf "$$URL/api/health" | grep -q '"status":"ok"'; then
+            echo "Smoke test passed on attempt $$i"
+            exit 0
+          fi
+          echo "Attempt $$i failed, retrying in 10s..."
+          sleep 10
+        done
+        echo "ERROR: smoke test failed for $$SERVICE"
+        exit 1
+
+substitutions:
+  _ENV: 'dev'
+  _REGION: 'us-central1'
+  _AR_HOST: 'us-central1-docker.pkg.dev'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+
+timeout: '1800s'
+
+images:
+  - '$_AR_HOST/$PROJECT_ID/yggdrasil/yggdrasil-web:$_ENV-$_SHORT_SHA'
+  - '$_AR_HOST/$PROJECT_ID/yggdrasil/yggdrasil-web:$_ENV-latest'

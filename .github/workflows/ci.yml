@@ -1,25 +1,114 @@
-name: CI
+name: CI Pipeline
 
 on:
+  push:
+    branches: [main, develop]
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/workflows/terraform.yml'
+      - 'terraform/**'
   pull_request:
-    branches: [ "main", "develop" ]
+    branches: [main, develop]
+    paths-ignore:
+      - 'terraform/**'
+
+env:
+  NODE_VERSION: '20'
+
+permissions:
+  contents: read
+  id-token: write
+  security-events: write
 
 jobs:
-  build:
+  lint-and-typecheck:
+    name: Lint & Type Check
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Node 20
-        uses: actions/setup-node@v4
+
+      - uses: actions/setup-node@v4
         with:
-          node-version: 20
-      - name: Install dependencies
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install root dependencies
         run: npm ci
-      - name: Type check
-        run: npm run type-check
-      - name: Lint
+
+      - name: Install functions dependencies
+        run: cd functions && npm ci
+
+      - name: Lint root
         run: npm run lint
-      - name: Test
-        run: npm run test --if-present -- --passWithNoTests
-      - name: Build functions
-        run: cd functions && npm ci && npm run build
+
+      - name: Lint functions
+        run: cd functions && npm run lint
+
+      - name: Type check root
+        run: npm run type-check
+
+      - name: Build functions (type check)
+        run: cd functions && npm run build
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install functions dependencies
+        run: cd functions && npm ci
+
+      - name: Run root tests
+        run: npm run test --if-present -- --passWithNoTests --ci --maxWorkers=2
+
+      - name: Run functions tests
+        run: cd functions && npm run test --if-present -- --passWithNoTests --ci --maxWorkers=2
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      security-events: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run CodeQL Analysis
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript,typescript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:javascript"
+
+      - name: Run npm audit (root)
+        run: npm audit --audit-level=high --json > npm-audit-root.json || true
+
+      - name: Run npm audit (functions)
+        run: cd functions && npm audit --audit-level=high --json > ../npm-audit-functions.json || true
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: moderate

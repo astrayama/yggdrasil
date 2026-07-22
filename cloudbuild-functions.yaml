@@ -1,0 +1,79 @@
+# Cloud Build pipeline for Firebase Cloud Functions + security rules.
+# Deploys the 2nd-gen Cloud Functions and Firestore/Storage rules to the target project.
+#
+# Triggered by .github/workflows/deploy-functions.yml via WIF:
+#   gcloud builds submit --config=cloudbuild-functions.yaml --project=yggdrasil-prod \
+#     --substitutions=_ENV=dev,_SHORT_SHA=<sha>
+
+steps:
+  - id: target
+    name: 'gcr.io/cloud-builders/gcloud'
+    args:
+      - '-c'
+      - |
+        case "$_ENV" in
+          dev)  echo "yggdrasil-dev"  > /workspace/target_project ;;
+          prod) echo "yggdrasil-prod" > /workspace/target_project ;;
+          *)    echo "ERROR: _ENV must be 'dev' or 'prod'"; exit 1 ;;
+        esac
+        echo "Target project: $$(cat /workspace/target_project)"
+    entrypoint: 'bash'
+
+  - id: install
+    name: 'node:20-alpine'
+    waitFor: ['-']
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        cd functions
+        npm ci
+
+  - id: build
+    name: 'node:20-alpine'
+    waitFor: ['install']
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        cd functions
+        npm run build
+
+  - id: deploy-functions
+    name: 'node:20-alpine'
+    waitFor: ['build', 'target']
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        set -euo pipefail
+        TARGET_PROJECT=$$(cat /workspace/target_project)
+        npm install -g firebase-tools
+        cd functions
+        # 2nd-gen Cloud Functions. The functions SA (yggdrasil-functions@<project>) is set
+        # in the code via `setGlobalOptions`. Runtime secrets are read from Secret Manager.
+        firebase deploy --only functions \
+          --project=$$TARGET_PROJECT \
+          --force
+
+  - id: deploy-rules
+    name: 'node:20-alpine'
+    waitFor: ['target']
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - |
+        set -euo pipefail
+        TARGET_PROJECT=$$(cat /workspace/target_project)
+        npm install -g firebase-tools
+        firebase deploy --only firestore:rules,firestore:indexes,storage \
+          --project=$$TARGET_PROJECT \
+          --force
+
+substitutions:
+  _ENV: 'dev'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: '1800s'

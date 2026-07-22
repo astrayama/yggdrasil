@@ -1,0 +1,72 @@
+name: Deploy Cloud Functions
+
+# Deploys Firebase Cloud Functions + Firestore/Storage rules to the target environment.
+# Separate from deploy.yml so function changes can ship independently of the web app.
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - 'functions/**'
+      - 'firestore.rules'
+      - 'firestore.indexes.json'
+      - 'storage.rules'
+      - '.github/workflows/deploy-functions.yml'
+      - 'cloudbuild-functions.yaml'
+  workflow_dispatch:
+    inputs:
+      env:
+        description: 'Target environment'
+        required: true
+        type: choice
+        default: dev
+        options: [dev, prod]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  REGION: 'us-central1'
+  PROJECT_ID: 'yggdrasil-prod'
+
+jobs:
+  trigger:
+    name: Trigger Functions Build
+    runs-on: ubuntu-latest
+    environment: ${{ (github.event_name == 'workflow_dispatch' && 'production') || 'dev' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve environment
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            ENV="${{ inputs.env }}"
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            ENV="dev"
+          else
+            ENV="prod"
+          fi
+          echo "env=$ENV" >> "$GITHUB_OUTPUT"
+
+      - name: Authenticate to Google Cloud (WIF)
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
+          service_account: ${{ secrets.GITHUB_DEPLOYER_SA }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Submit functions build to Cloud Build
+        run: |
+          gcloud builds submit . \
+            --config=cloudbuild-functions.yaml \
+            --project=${{ env.PROJECT_ID }} \
+            --region=${{ env.REGION }} \
+            --substitutions=_ENV=${{ steps.env.outputs.env }} \
+            --timeout=1800s
+
+      - name: Report
+        run: |
+          echo "::notice::Deployed Cloud Functions + rules to ${{ steps.env.outputs.env }}"
